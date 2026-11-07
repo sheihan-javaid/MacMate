@@ -121,10 +121,19 @@ public struct NetworkPacket: Codable, Sendable {
         if let boolVal = raw as? Bool {
             return boolVal
         }
+        if let intVal = raw as? Int {
+            return intVal != 0
+        }
+        if let int64Val = raw as? Int64 {
+            return int64Val != 0
+        }
+        if let num = raw as? NSNumber {
+            return num.boolValue
+        }
         if let string = raw as? String {
             switch string.lowercased() {
-            case "true": return true
-            case "false": return false
+            case "true", "1", "yes": return true
+            case "false", "0", "no": return false
             default: return defaultValue
             }
         }

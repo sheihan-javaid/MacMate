@@ -41,7 +41,11 @@ final class CallMediaPauser {
     }
 
     func callEnded(_ key: String) {
-        activeCalls.remove(key)
+        if key.isEmpty {
+            activeCalls.removeAll()
+        } else {
+            activeCalls.remove(key)
+        }
         guard activeCalls.isEmpty, pausedForCall else { return }
         // Ringing ends just before "talking" starts when a call is answered;
         // waiting a moment keeps the music from blipping back on in between.

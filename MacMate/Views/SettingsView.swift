@@ -6,6 +6,7 @@
 import SwiftUI
 import UserNotifications
 
+@MainActor
 public struct SettingsView: View {
     @Bindable var viewModel: SettingsViewModel
 
@@ -236,6 +237,7 @@ private struct GeneralSettings: View {
     @State private var name = ""
     @AppStorage(MMAppearanceManager.key) private var appearancePreference = "system"
     @AppStorage(MotionPreference.key) private var reduceMotion = false
+    @AppStorage(NotificationModeStore.muteAllSoundsKey) private var muteAllNotificationSounds = false
     @AppStorage(OneTimeCode.autoCopyKey) private var copyCodes = false
     @AppStorage(CallMediaPauser.settingKey) private var pauseMediaDuringCalls = true
     @AppStorage(CallCard.settingKey) private var showCallCard = true
@@ -276,6 +278,11 @@ private struct GeneralSettings: View {
                     Text("Copy verification codes automatically")
                     Text("When a notification from your phone contains a sign-in code, MacMate puts it on the clipboard.")
                 }
+                Toggle(isOn: $muteAllNotificationSounds) {
+                    Text("Mute All Notification Sounds")
+                    Text("Deliver notifications without playing notification alert sounds.")
+                }
+                .accessibilityIdentifier("settings.muteAllNotificationSounds")
                 Toggle(isOn: $showCallCard) {
                     Text("Show calls in a floating card")
                     Text("Incoming calls appear in a card at the top right that stays until the phone stops ringing, then becomes a small pill while you're on the call.")

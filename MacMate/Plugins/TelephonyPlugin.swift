@@ -24,25 +24,35 @@ public final class TelephonyPlugin: MacMatePlugin, @unchecked Sendable {
     public init() {}
 
     public func onConnected(connection: DeviceConnection) {}
-    public func onDisconnected(connection: DeviceConnection) {}
+    public func onDisconnected(connection: DeviceConnection) {
+        let deviceId = connection.peerDeviceInfo?.deviceId ?? connection.targetDeviceId ?? ""
+        Task { @MainActor in
+            CallMediaPauser.shared.callEnded(deviceId)
+            CallCard.shared.ended(deviceId: deviceId)
+        }
+    }
 
     public func handlePacket(connection: DeviceConnection, packet: NetworkPacket) {
         guard packet.type == "kdeconnect.telephony",
-              let deviceId = connection.peerDeviceInfo?.deviceId else { return }
+              let deviceId = connection.peerDeviceInfo?.deviceId ?? connection.targetDeviceId else { return }
 
         let event = packet.string(for: "event") ?? ""
         let identifier = "macmate-telephony-\(deviceId)-\(event)"
+        let isCancel = packet.bool(for: "isCancel")
+        let isEndEvent = event == "idle" || event == "callEnded" || event == "ended" || event == "cancel" || event == "cancelled" || event == "hangup"
         let isCall = event == "ringing" || event == "talking"
-        MacMateLog("[TelephonyPlugin] \(event)\(packet.bool(for: "isCancel") ? " cancelled" : "") from \(connection.peerDeviceInfo?.deviceName ?? deviceId)")
+        MacMateLog("[TelephonyPlugin] \(event)\(isCancel ? " cancelled" : "") from \(connection.peerDeviceInfo?.deviceName ?? deviceId)")
 
-        // A cancel retracts what was posted for this event; for a call, it ended.
-        if packet.bool(for: "isCancel") {
-            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
-            if isCall {
-                Task { @MainActor in
-                    CallMediaPauser.shared.callEnded(deviceId)
-                    CallCard.shared.ended(deviceId: deviceId)
-                }
+        // A cancel or call termination event retracts what was posted for this call; it ended.
+        if isCancel || isEndEvent {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [
+                "macmate-telephony-\(deviceId)-ringing",
+                "macmate-telephony-\(deviceId)-talking",
+                identifier
+            ])
+            Task { @MainActor in
+                CallMediaPauser.shared.callEnded(deviceId)
+                CallCard.shared.ended(deviceId: deviceId)
             }
             return
         }
@@ -69,9 +79,13 @@ public final class TelephonyPlugin: MacMatePlugin, @unchecked Sendable {
             )
             Task { @MainActor in
                 switch event {
-                case "ringing": CallCard.shared.ringing(deviceId: deviceId, caller: caller)
-                case "talking": CallCard.shared.talking(deviceId: deviceId, caller: caller)
-                default: CallCard.shared.missed(deviceId: deviceId)
+                case "ringing":
+                    CallCard.shared.ringing(deviceId: deviceId, caller: caller)
+                case "talking":
+                    CallCard.shared.talking(deviceId: deviceId, caller: caller)
+                default:
+                    CallMediaPauser.shared.callEnded(deviceId)
+                    CallCard.shared.missed(deviceId: deviceId)
                 }
             }
             if event != "missedCall" { return }

@@ -5,13 +5,13 @@
   "archives": {
     "AppleSilicon": {
       "name": "MacMate-1.0-AppleSilicon.zip",
-      "size": 3019780,
-      "sha256": "a7575e77ce297b101850ae685358e1c4571ceef3ac0854666eaab7bf87c8a70c"
+      "size": 3077467,
+      "sha256": "0313e95c7ad905e1229300cf7c4134390e4a34bff8fdec800aaec7f4e4f922b8"
     },
     "Intel": {
       "name": "MacMate-1.0-Intel.zip",
-      "size": 3170346,
-      "sha256": "e0267bdbff06981de64dd446a9d0315c898c0ebebcbc5b9bebf3fc3b30715de4"
+      "size": 3231834,
+      "sha256": "fb9e72f6fff5f6cfb123bacda37418703bb484d35ac236a49c47b491218b35ed"
     }
   }
 }

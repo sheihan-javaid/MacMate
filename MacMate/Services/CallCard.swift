@@ -42,16 +42,14 @@ final class CallCard {
         case onCall(since: Date)
     }
 
-    private var deviceId: String?
-    private var caller: Caller?
-    private var phase: Phase?
+    private(set) var currentDeviceId: String?
+    private(set) var currentCaller: Caller?
+    private(set) var currentPhase: Phase?
 
-    var currentDeviceId: String? { deviceId }
-    var currentCaller: Caller? { caller }
-    var currentPhase: Phase? { phase }
     /// Dismissed by hand: stays hidden until this call is over.
     private var isDismissed = false
     private var closeTask: Task<Void, Never>?
+    private var ringingTimeoutTask: Task<Void, Never>?
 
     private var panel: CallCardPanel?
     private var hosting: NSHostingView<CallCardView>?
@@ -60,26 +58,46 @@ final class CallCard {
 
     func ringing(deviceId: String, caller: Caller) {
         closeTask?.cancel()
-        if self.deviceId != deviceId { isDismissed = false }
-        self.deviceId = deviceId
-        self.caller = caller
-        phase = .ringing(silenced: false)
+        ringingTimeoutTask?.cancel()
+        if self.currentDeviceId != deviceId { isDismissed = false }
+        self.currentDeviceId = deviceId
+        self.currentCaller = caller
+        self.currentPhase = .ringing(silenced: false)
         update()
+
+        // Standard phone calls ring for at most 45-60s before carrier timeout.
+        // Automatically dismiss the ringing card after 60 seconds if no further packet arrives.
+        ringingTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            if !Task.isCancelled {
+                self?.close()
+            }
+        }
     }
 
     /// Answered, or an outgoing call under way.
     func talking(deviceId: String, caller: Caller) {
         closeTask?.cancel()
-        if self.deviceId != deviceId { isDismissed = false }
-        self.deviceId = deviceId
-        self.caller = caller
-        if case .onCall = phase {} else { phase = .onCall(since: .now) }
+        ringingTimeoutTask?.cancel()
+        if self.currentDeviceId != deviceId { isDismissed = false }
+        self.currentDeviceId = deviceId
+        self.currentCaller = caller
+        if case .onCall = currentPhase {} else { currentPhase = .onCall(since: .now) }
         update()
     }
 
     /// The phone stopped ringing or hung up.
     func ended(deviceId: String) {
-        guard deviceId == self.deviceId else { return }
+        guard currentDeviceId == nil || deviceId.isEmpty || deviceId == currentDeviceId else { return }
+        ringingTimeoutTask?.cancel()
+        ringingTimeoutTask = nil
+
+        // If the call was already in progress (talking/onCall), close immediately.
+        if case .onCall = currentPhase {
+            close()
+            return
+        }
+
         // An answered call stops ringing just before "talking" arrives, and a
         // missed one just before "missedCall"; waiting a moment keeps the card
         // from closing and reopening in between.
@@ -91,16 +109,18 @@ final class CallCard {
     }
 
     func missed(deviceId: String) {
-        guard deviceId == self.deviceId else { return }
+        guard currentDeviceId == nil || deviceId.isEmpty || deviceId == currentDeviceId else { return }
+        ringingTimeoutTask?.cancel()
+        ringingTimeoutTask = nil
         close()
     }
 
     // MARK: - Buttons
 
     private func silence() {
-        guard let deviceId, case .ringing(silenced: false) = phase else { return }
+        guard let deviceId = currentDeviceId, case .ringing(silenced: false) = currentPhase else { return }
         TelephonyPlugin.muteRinger(deviceId: deviceId)
-        phase = .ringing(silenced: true)
+        currentPhase = .ringing(silenced: true)
         update()
     }
 
@@ -114,15 +134,17 @@ final class CallCard {
     private func close() {
         closeTask?.cancel()
         closeTask = nil
-        deviceId = nil
-        caller = nil
-        phase = nil
+        ringingTimeoutTask?.cancel()
+        ringingTimeoutTask = nil
+        currentDeviceId = nil
+        currentCaller = nil
+        currentPhase = nil
         isDismissed = false
         hidePanel()
     }
 
     private func update() {
-        guard let caller, let phase, !isDismissed else {
+        guard let caller = currentCaller, let phase = currentPhase, !isDismissed else {
             MacMateLog("[CallCard] Not shown: \(isDismissed ? "dismissed for this call" : "no call")")
             return
         }
@@ -147,6 +169,7 @@ final class CallCard {
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false
         )
+        panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -189,6 +212,11 @@ final class CallCard {
             context.duration = 0.2
             panel.animator().alphaValue = 0
         } completionHandler: {
+            panel.orderOut(nil)
+        }
+        // Safety fallback: ensure panel is ordered out after the animation completes even if
+        // AppKit throttles or delays completionHandler while the application is in the background.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             panel.orderOut(nil)
         }
     }

@@ -251,14 +251,21 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         guard let notifId = packet.string(for: "id") else { return }
 
         if isCancel {
+            let existing = notifications[deviceId]?.first(where: { $0.id == notifId })
             removeLocally(id: notifId, deviceId: deviceId)
+            if Self.isCallNotification(id: notifId, notification: existing) {
+                Task { @MainActor in
+                    CallMediaPauser.shared.callEnded(deviceId)
+                    CallCard.shared.ended(deviceId: deviceId)
+                }
+            }
             return
         }
 
         let appName = packet.string(for: "appName") ?? "Notification"
         let title = packet.string(for: "title") ?? ""
         let text = packet.string(for: "text") ?? (packet.string(for: "ticker") ?? "")
-        let silent = packet.bool(for: "silent")
+        let isInitialSync = packet.bool(for: "silent")
         let replyId = packet.string(for: "requestReplyId").flatMap { $0.isEmpty ? nil : $0 }
         let timeMillis = packet.int64(for: "time")
 
@@ -282,13 +289,16 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
 
         let key = NotificationImageTracker.Key(deviceId: deviceId, notificationId: notifId)
         let suppressNativeDuplicate = NativeNotificationFilter.shouldSuppress(item)
-        let waitForImage = !silent && !suppressNativeDuplicate && item.imageData == nil && Self.expectsImage(packet)
+        let waitForImage = !isInitialSync && !suppressNativeDuplicate && item.imageData == nil && Self.expectsImage(packet)
         let token = imageTracker.begin(key, packetId: packet.id, hash: packet.string(for: "payloadHash"), waiting: waitForImage)
 
         // Silent initial sync still populates the list and image cache.
         // Also keep mirrored WhatsApp items without duplicating native alerts.
-        if silent || suppressNativeDuplicate { return }
+        if isInitialSync || suppressNativeDuplicate { return }
 
+        // Verification-code notifications must still be delivered and copied even for muted apps.
+        // One-time verification codes are automatically copied regardless of the app's notification mode.
+        // For muted apps, verification codes bypass muting in post(_:) to deliver a silent banner with the "Copy Code" action.
         if let code = item.code, OneTimeCode.isAutoCopyEnabled {
             Self.copyToPasteboard(code)
             MacMateLog("[NotificationPlugin] Copied a verification code from \(appName)")
@@ -359,14 +369,57 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         "android:\(deviceId.utf8.count):\(deviceId)\(id)"
     }
 
-    private func post(_ item: PhoneNotification) {
-        // Recheck after an image wait: WhatsApp may have launched meanwhile.
-        guard !NativeNotificationFilter.shouldSuppress(item) else { return }
+    static func isCallNotification(id: String, notification: PhoneNotification?) -> Bool {
+        if let package = NativeNotificationFilter.extractPackageName(from: id)?.lowercased() {
+            let callPackages = [
+                "com.google.android.dialer",
+                "com.samsung.android.incallui",
+                "com.samsung.android.dialer",
+                "com.android.dialer",
+                "com.android.phone",
+                "com.android.server.telecom",
+                "com.oneplus.dialer",
+                "com.coloros.dialer",
+                "com.vivo.dialer",
+                "com.transsion.dialer",
+                "com.truecaller"
+            ]
+            if callPackages.contains(package) || package.contains(".dialer") || package.contains(".incallui") {
+                return true
+            }
+        }
+        if let notif = notification {
+            let app = notif.appName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if app == "phone" || app == "dialer" || app == "calls" || app == "truecaller" {
+                return true
+            }
+            let title = notif.title.lowercased()
+            let text = notif.text.lowercased()
+            if title.contains("incoming call") || title.contains("ongoing call") || text.contains("incoming call") {
+                return true
+            }
+        }
+        return false
+    }
+
+    public static func deliveryDecision(for item: PhoneNotification, store: NotificationModeStore = .shared) -> NotificationDelivery {
+        let appKey = NotificationAppKey(notificationId: item.id, appName: item.appName)
+        let mode = store.mode(for: appKey)
+        return NotificationDelivery.decide(
+            mode: mode,
+            hasCode: item.code != nil,
+            muteAllSounds: store.isMuteAllSoundsEnabled
+        )
+    }
+
+    public static func makeContent(for item: PhoneNotification, playSound: Bool = true) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = item.title.isEmpty ? item.appName : "\(item.appName): \(item.title)"
         content.body = item.text
-        content.sound = .default
+        content.sound = playSound ? .default : nil
         content.categoryIdentifier = item.code == nil ? Self.notificationCategory : Self.codeCategory
+        let packageName = NativeNotificationFilter.extractPackageName(from: item.id)
+        content.threadIdentifier = "\(item.deviceId):\(packageName ?? item.appName)"
         content.userInfo = [
             "deviceId": item.deviceId,
             "notifId": item.id,
@@ -379,10 +432,33 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
                 ? "Code \(code) copied"
                 : "Code \(code)"
         }
+        return content
+    }
 
-        // A status-bar glyph says nothing the banner doesn't, and is usually
-        // white, so only pictures are attached.
-        let prepared = item.imageIsGlyph ? nil : item.imageData.flatMap { NotificationImages.attachment($0) }
+    private func post(_ item: PhoneNotification) {
+        // Recheck after an image wait: WhatsApp may have launched meanwhile.
+        guard !NativeNotificationFilter.shouldSuppress(item) else { return }
+
+        // Evaluate per-app notification mode and global sound mute setting.
+        let decision = Self.deliveryDecision(for: item)
+
+        // Verification-code notifications must still be delivered and copied even for muted apps.
+        // For non-code muted notifications, skip native banner presentation entirely (the notification
+        // is already recorded in the in-app list).
+        guard case .banner(let playSound) = decision else { return }
+
+        let content = Self.makeContent(for: item, playSound: playSound)
+
+        // Keep real photos exactly as they are (attach unchanged).
+        // When there is no image or the image is a glyph, attach the generated tile.
+        let prepared: NotificationImages.PreparedAttachment?
+        if let data = item.imageData, !item.imageIsGlyph {
+            prepared = NotificationImages.attachment(data)
+        } else {
+            let packageName = NativeNotificationFilter.extractPackageName(from: item.id)
+            let tileData = AppIconResolver.shared.tile(forPackage: packageName, appName: item.appName)
+            prepared = NotificationImages.attachment(tileData)
+        }
         if let prepared { content.attachments = [prepared.attachment] }
 
         let request = UNNotificationRequest(
@@ -427,7 +503,11 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound, .list])
+        var options: UNNotificationPresentationOptions = [.banner, .list]
+        if notification.request.content.sound != nil {
+            options.insert(.sound)
+        }
+        completionHandler(options)
     }
 
     public func userNotificationCenter(

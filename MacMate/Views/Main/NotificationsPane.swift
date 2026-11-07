@@ -11,20 +11,21 @@ import AppKit
 
 public struct NotificationsPane: View {
     let device: DeviceViewModel
+    private let store: NotificationModeStore
 
-    public init(device: DeviceViewModel) {
+    @State private var filter: NotificationModeFilter = .all
+    @State private var showResetAllConfirmation = false
+
+    public init(device: DeviceViewModel, store: NotificationModeStore = .shared) {
         self.device = device
-    }
-
-    /// Notifications grouped by app, the app with the newest one first.
-    private var groups: [(app: String, items: [PhoneNotification])] {
-        let byApp = Dictionary(grouping: device.notifications, by: \.appName)
-        return byApp
-            .map { (app: $0.key, items: $0.value.sorted { $0.date > $1.date }) }
-            .sorted { ($0.items.first?.date ?? .distantPast) > ($1.items.first?.date ?? .distantPast) }
+        self.store = store
     }
 
     public var body: some View {
+        let customized = store.customizedApps
+        let allGroups = NotificationGroupBuilder.build(notifications: device.notifications, customized: customized)
+        let visibleGroups = NotificationGroupBuilder.filter(allGroups, by: filter)
+
         Group {
             if !device.isConnected {
                 MMSectionGate(
@@ -32,7 +33,7 @@ public struct NotificationsPane: View {
                     sectionTitle: "Notifications",
                     systemImage: "bell"
                 ) { EmptyView() }
-            } else if device.notifications.isEmpty {
+            } else if device.notifications.isEmpty && customized.isEmpty {
                 ContentUnavailableView(
                     "No Notifications",
                     systemImage: "bell.slash",
@@ -51,38 +52,156 @@ public struct NotificationsPane: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if device.notifications.contains(where: \.isDismissable) {
-                                Button("Clear All") {
-                                    for notification in device.notifications where notification.isDismissable {
-                                        device.dismiss(notification)
+
+                            HStack(spacing: 8) {
+                                if !customized.isEmpty {
+                                    Button("Reset All…", role: .destructive) {
+                                        showResetAllConfirmation = true
                                     }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .accessibilityLabel("Reset all application notification modes")
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+
+                                let visibleDismissableItems = NotificationGroupBuilder.dismissableItems(in: visibleGroups)
+                                if !visibleDismissableItems.isEmpty {
+                                    Button(filter == .all ? "Clear All" : "Clear Filtered") {
+                                        for notification in visibleDismissableItems {
+                                            device.dismiss(notification)
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .accessibilityLabel(filter == .all ? "Clear all notifications" : "Clear filtered notifications")
+                                }
                             }
                         }
 
-                        // App groups
-                        ForEach(groups, id: \.app) { group in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text(group.app)
-                                        .font(MMFont.cardTitle)
-                                    Spacer()
-                                    Text("\(group.items.count)")
-                                        .font(MMFont.caption)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(.quaternary))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.horizontal, 4)
+                        // Mode Filter Bar
+                        Picker("Filter", selection: $filter) {
+                            ForEach(NotificationModeFilter.allCases) { filterCase in
+                                Text(filterCase.title).tag(filterCase)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityLabel("Filter apps by notification mode")
 
-                                MMCard(radius: 14) {
-                                    VStack(spacing: 0) {
-                                        ForEach(Array(group.items.enumerated()), id: \.element.id) { index, notification in
-                                            if index > 0 { Divider().padding(.leading, 16) }
-                                            NotificationRow(notification: notification, device: device)
+                        // App groups or filter empty state
+                        if visibleGroups.isEmpty {
+                            ContentUnavailableView {
+                                Label(emptyFilterTitle, systemImage: filter.symbol)
+                            } description: {
+                                Text(emptyFilterDescription)
+                            } actions: {
+                                if filter != .all {
+                                    Button("Show All") {
+                                        filter = .all
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(.vertical, 32)
+                        } else {
+                            ForEach(visibleGroups) { group in
+                                let selectMode: (NotificationMode) -> Void = { newMode in
+                                    store.setMode(newMode, for: group.key, displayName: group.displayName)
+                                }
+                                let resetMode: () -> Void = {
+                                    store.resetMode(for: group.key)
+                                }
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // Group Header
+                                    HStack(alignment: .center, spacing: 10) {
+                                        AppIconTileView(packageId: group.packageId, appName: group.displayName)
+
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            HStack(spacing: 6) {
+                                                Text(group.displayName)
+                                                    .font(MMFont.cardTitle)
+                                                    .accessibilityAddTraits(.isHeader)
+                                                if let disambiguator = group.disambiguator {
+                                                    Text(disambiguator)
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer()
+
+                                        if !group.items.isEmpty {
+                                            Text("\(group.items.count)")
+                                                .font(MMFont.caption)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(.quaternary))
+                                                .foregroundStyle(.secondary)
+                                                .accessibilityLabel("\(group.items.count) \(group.items.count == 1 ? "notification" : "notifications")")
+                                        }
+
+                                        if group.canConfigure || group.canReset {
+                                            AppModeMenu(
+                                                mode: group.mode,
+                                                appName: group.displayName,
+                                                canConfigure: group.canConfigure,
+                                                canReset: group.canReset,
+                                                onSelect: selectMode,
+                                                onReset: resetMode
+                                            )
+                                        }
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .contextMenu {
+                                        if group.canConfigure || group.canReset {
+                                            AppModeMenuContent(
+                                                mode: group.mode,
+                                                appName: group.displayName,
+                                                canConfigure: group.canConfigure,
+                                                canReset: group.canReset,
+                                                onSelect: selectMode,
+                                                onReset: resetMode
+                                            )
+                                        }
+                                    }
+
+                                    if group.mode == .muted {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "info.circle")
+                                                .font(.caption)
+                                                .accessibilityHidden(true)
+                                            Text("Banners hidden. Verification codes still appear.")
+                                                .font(.caption)
+                                        }
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 6)
+                                    }
+
+                                    // Content card or zero-notification placeholder
+                                    if group.items.isEmpty {
+                                        HStack {
+                                            Text("No active notifications")
+                                                .font(MMFont.caption)
+                                                .foregroundStyle(.secondary)
+                                            Spacer()
+                                            Text("Applies to new notifications")
+                                                .font(MMFont.caption)
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(.quaternary.opacity(0.3))
+                                        )
+                                    } else {
+                                        MMCard(radius: 14) {
+                                            VStack(spacing: 0) {
+                                                ForEach(Array(group.items.enumerated()), id: \.element.id) { index, notification in
+                                                    if index > 0 { Divider().padding(.leading, 16) }
+                                                    NotificationRow(notification: notification, device: device)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -95,7 +214,170 @@ public struct NotificationsPane: View {
                     .frame(maxWidth: .infinity)
                 }
                 .animation(.default, value: device.notifications)
+                .animation(.default, value: filter)
+                .animation(.default, value: store.revision)
             }
+        }
+        .confirmationDialog(
+            "Reset All App Notification Modes?",
+            isPresented: $showResetAllConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset \(customized.count) \(customized.count == 1 ? "App" : "Apps")", role: .destructive) {
+                store.resetAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every application will return to Normal mode across all paired devices.")
+        }
+    }
+
+    private var emptyFilterTitle: String {
+        switch filter {
+        case .all: return "No Notifications"
+        case .normal: return "No Normal Notifications"
+        case .silent: return "No Silent Apps"
+        case .muted: return "No Muted Apps"
+        }
+    }
+
+    private var emptyFilterDescription: String {
+        switch filter {
+        case .all:
+            return "Notifications on \(device.name) appear here."
+        case .normal:
+            return "No apps or notifications are currently in Normal mode."
+        case .silent:
+            return "Apps set to Silent deliver banners without playing notification alert sounds."
+        case .muted:
+            return "Apps set to Muted suppress native banners while keeping notifications in this list."
+        }
+    }
+}
+
+// MARK: - App Icon Tile View
+
+private struct AppIconTileView: View {
+    let packageId: String?
+    let appName: String
+
+    var body: some View {
+        if let image = AppIconResolver.shared.tileImage(forPackage: packageId, appName: appName) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .clipShape(RoundedRectangle(cornerRadius: 5.5, style: .continuous))
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "app.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+// MARK: - App Mode Menu & Content
+
+private struct AppModeMenu: View {
+    let mode: NotificationMode
+    let appName: String
+    var canConfigure: Bool = true
+    var canReset: Bool = true
+    let onSelect: (NotificationMode) -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        Menu {
+            AppModeMenuContent(
+                mode: mode,
+                appName: appName,
+                canConfigure: canConfigure,
+                canReset: canReset,
+                onSelect: onSelect,
+                onReset: onReset
+            )
+        } label: {
+            Label(modeTitle, systemImage: modeSymbol)
+                .font(.callout)
+                .labelStyle(.titleAndIcon)
+        }
+        .menuStyle(.borderlessButton)
+        .controlSize(.small)
+        .fixedSize()
+        .accessibilityLabel("Notification mode for \(appName)")
+        .accessibilityValue(modeTitle)
+    }
+
+    private var modeTitle: String {
+        switch mode {
+        case .normal: return "Normal"
+        case .silent: return "Silent"
+        case .muted: return "Muted"
+        }
+    }
+
+    private var modeSymbol: String {
+        switch mode {
+        case .normal: return "bell"
+        case .silent: return "bell.slash"
+        case .muted: return "speaker.slash"
+        }
+    }
+}
+
+private struct AppModeMenuContent: View {
+    let mode: NotificationMode
+    let appName: String
+    var canConfigure: Bool = true
+    var canReset: Bool = true
+    let onSelect: (NotificationMode) -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        if canConfigure {
+            Section {
+                Button {
+                    onSelect(.normal)
+                } label: {
+                    HStack {
+                        Text("Normal (Banner & Sound)")
+                        if mode == .normal {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                Button {
+                    onSelect(.silent)
+                } label: {
+                    HStack {
+                        Text("Silent (Banner, No Sound)")
+                        if mode == .silent {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                Button {
+                    onSelect(.muted)
+                } label: {
+                    HStack {
+                        Text("Muted (In-App Only)")
+                        if mode == .muted {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        }
+
+        if canReset && mode != .normal {
+            if canConfigure {
+                Divider()
+            }
+            Button("Reset to Normal", action: onReset)
         }
     }
 }
@@ -111,15 +393,15 @@ final class NotificationImageCache: @unchecked Sendable {
         cache.totalCostLimit = 16 * 1024 * 1024 // 16 MB bounded cache
     }
 
-    func image(forKey key: String) -> NSImage? {
+    nonisolated func image(forKey key: String) -> NSImage? {
         cache.object(forKey: key as NSString)
     }
 
-    func setImage(_ image: NSImage, forKey key: String, cost: Int) {
+    nonisolated func setImage(_ image: NSImage, forKey key: String, cost: Int) {
         cache.setObject(image, forKey: key as NSString, cost: cost)
     }
 
-    func removeAll() {
+    nonisolated func removeAll() {
         cache.removeAllObjects()
     }
 }

@@ -67,6 +67,7 @@ final class PhoneMount {
             "locallocks", "nonegnamecache",
             "rsize=131072", "wsize=262144", "readahead=1",   // MacMate decides how far to read ahead
             "acregmax=10", "acdirmax=10",
+            "deadtimeout=10",
         ].joined(separator: ",")
 
         let mountPoint = self.mountPoint
@@ -91,7 +92,12 @@ final class PhoneMount {
         // Off the main thread: a polite unmount waits for the drive to flush,
         // and answering the drive can need the main thread.
         let mountPoint = mountPoint
-        let unmounted = await Task.detached { Self.safeUnmount(mountPoint) }.value
+        var unmounted = await Task.detached { Self.safeUnmount(mountPoint) }.value
+        if !unmounted {
+            MacMateLog("[Files] Warning: Mount at \(mountPoint.path) could not be unmounted by syscall; invoking diskutil fallback")
+            let result = await Self.run("/usr/sbin/diskutil", ["unmount", "force", mountPoint.path])
+            unmounted = (result.status == 0)
+        }
         await server.stop()
         hostName?.remove()
         hostName = nil
@@ -103,6 +109,8 @@ final class PhoneMount {
 
     /// Cleans up after the drive was ejected from outside MacMate.
     func stopAfterEject() async {
+        let mountPoint = mountPoint
+        _ = await Task.detached { Self.safeUnmount(mountPoint) }.value
         await server.stop()
         hostName?.remove()
         hostName = nil
@@ -120,9 +128,10 @@ final class PhoneMount {
 
     // MARK: - Helpers
 
-    /// Safely unmounts using Darwin.unmount with flags = 0.
-    /// Strictly NEVER uses MNT_FORCE. Pre-validates mount ownership and path before unmounting.
-    /// If unmount fails (e.g. EBUSY), the mount is preserved.
+    /// Safely unmounts a phone's NFS drive using Darwin.unmount.
+    /// Strictly pre-validates mount ownership, filesystem type (NFS), child path safety, and source provenance.
+    /// Attempts polite unmount first (flags = 0); if busy (EBUSY), falls back to MNT_FORCE so that an
+    /// orphaned mount is never left in the kernel pointing to a terminated server (which causes macOS "Server connections interrupted" popups).
     @discardableResult
     nonisolated static func safeUnmount(_ url: URL) -> Bool {
         let canonicalPath = url.resolvingSymlinksInPath().standardized.path
@@ -156,14 +165,34 @@ final class PhoneMount {
             return false
         }
 
-        // Strictly normal unmount only. Never MNT_FORCE.
+        // Verify source provenance: must match local loopback / Bonjour name
+        let fromName = withUnsafePointer(to: st.f_mntfromname) {
+            $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) { String(cString: $0) }
+        }
+        let shareName = url.lastPathComponent
+        guard isMatchingMountSource(fromName, expectedShareName: shareName) else {
+            MacMateLog("[Files] Pre-unmount check failed: source '\(fromName)' does not match expected share '\(shareName)'; preserving mount")
+            return false
+        }
+
+        // 1. Polite normal unmount first.
         let status = Darwin.unmount(canonicalPath, 0)
         if status == 0 {
             MacMateLog("[Files] Safely unmounted \(canonicalPath)")
             return true
+        }
+
+        // 2. If polite unmount failed (e.g. EBUSY because Finder or Spotlight has an open handle),
+        // force the unmount. An open file or folder cannot be kept anyway once the phone is gone.
+        // Forcing unmount releases open vnodes and prevents macOS NetFS from showing "Server connections interrupted".
+        let err = errno
+        MacMateLog("[Files] Polite unmount returned errno \(err) for \(canonicalPath); forcing unmount with MNT_FORCE")
+        if Darwin.unmount(canonicalPath, MNT_FORCE) == 0 {
+            MacMateLog("[Files] Forcibly unmounted \(canonicalPath)")
+            return true
         } else {
-            let err = errno
-            MacMateLog("[Files] Preserving mount at \(canonicalPath) (unmount returned errno \(err))")
+            let forceErr = errno
+            MacMateLog("[Files] Force unmount failed at \(canonicalPath) (errno \(forceErr))")
             return false
         }
     }
@@ -268,7 +297,7 @@ final class PhoneMount {
 
     /// Unmounts phones left mounted by a previous run that didn't quit cleanly,
     /// and safely migrates legacy mounts from Tether/Mounts to MacMate/Mounts.
-    /// Strictly ownership-aware, never uses MNT_FORCE, and preserves mounts if safety checks fail.
+    /// Strictly ownership-aware, politely unmounts and uses MNT_FORCE fallback for busy mounts.
     static func cleanUpStaleMounts() {
         let lockResult: Void? = MountLock.withLock {
             performCleanUpStaleMounts()

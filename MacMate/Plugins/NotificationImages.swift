@@ -51,7 +51,7 @@ final class NotificationImages {
     nonisolated static func isGlyph(_ png: Data) -> Bool {
         guard let source = CGImageSourceCreateWithData(png as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return false }
-        let side = 32
+        let side = 64
         var pixels = [UInt8](repeating: 0, count: side * side * 4)
         let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
             guard let context = CGContext(
@@ -59,33 +59,64 @@ final class NotificationImages {
                 bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             ) else { return false }
+            context.interpolationQuality = .high
             context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
             return true
         }
         guard drawn else { return false }
 
-        var transparent = 0
-        var solid = 0
-        var low = [255, 255, 255]
-        var high = [0, 0, 0]
+        let totalPixels = side * side
+        var transparentCount = 0
+        var measuredCount = 0
+        var sumR = 0
+        var sumG = 0
+        var sumB = 0
+        var totalWeight = 0
+
+        struct ColorPixel { let r: Int; let g: Int; let b: Int }
+        var measured: [ColorPixel] = []
+        measured.reserveCapacity(totalPixels)
+
         for pixel in stride(from: 0, to: pixels.count, by: 4) {
-            let alpha = pixels[pixel + 3]
+            let alpha = Int(pixels[pixel + 3])
             if alpha < 16 {
-                transparent += 1
-            } else if alpha > 200 {
-                // Edges are left out: antialiasing blends them with the background.
-                solid += 1
-                for channel in 0..<3 {
-                    let value = Int(pixels[pixel + channel])
-                    low[channel] = min(low[channel], value)
-                    high[channel] = max(high[channel], value)
-                }
+                transparentCount += 1
+            } else if alpha >= 48 {
+                let r = min(255, (Int(pixels[pixel]) * 255 + alpha / 2) / alpha)
+                let g = min(255, (Int(pixels[pixel + 1]) * 255 + alpha / 2) / alpha)
+                let b = min(255, (Int(pixels[pixel + 2]) * 255 + alpha / 2) / alpha)
+                measured.append(ColorPixel(r: r, g: g, b: b))
+                sumR += r * alpha
+                sumG += g * alpha
+                sumB += b * alpha
+                totalWeight += alpha
+                measuredCount += 1
             }
         }
-        // A round contact photo has transparent corners too, but it has more
-        // than one colour in it.
-        guard solid > 0, transparent >= side * side / 4 else { return false }
-        return (0..<3).allSatisfy { high[$0] - low[$0] <= 40 }
+
+        // Must have some visible content (at least 0.5% ink)
+        guard measuredCount >= totalPixels / 200, totalWeight > 0 else { return false }
+
+        let meanR = sumR / totalWeight
+        let meanG = sumG / totalWeight
+        let meanB = sumB / totalWeight
+
+        var maxDevR = 0
+        var maxDevG = 0
+        var maxDevB = 0
+        for p in measured {
+            maxDevR = max(maxDevR, abs(p.r - meanR))
+            maxDevG = max(maxDevG, abs(p.g - meanG))
+            maxDevB = max(maxDevB, abs(p.b - meanB))
+        }
+        let maxDeviation = max(maxDevR, max(maxDevG, maxDevB))
+
+        let transparentRatio = Double(transparentCount) / Double(totalPixels)
+        let isUniform = maxDeviation <= 24
+        let isNearWhite = meanR >= 210 && meanG >= 210 && meanB >= 210 &&
+                          (max(meanR, max(meanG, meanB)) - min(meanR, min(meanG, meanB)) <= 15)
+
+        return isUniform && (transparentRatio >= 0.25 || (isNearWhite && transparentRatio >= 0.10))
     }
 
     private func key(deviceId: String, hash: String) -> NSString {

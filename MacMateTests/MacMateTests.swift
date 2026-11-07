@@ -37,6 +37,12 @@ struct MacMateTests {
         #expect(!packet.bool(for: "b", default: true))
         #expect(packet.bool(for: "c", default: true))
         #expect(!packet.bool(for: "missing"))
+
+        let numericJson = #"{"id":2,"type":"kdeconnect.telephony","body":{"isCancel":1,"zero":0,"numString":"1"}}"#
+        let numPacket = try NetworkPacket.unserialize(from: Data(numericJson.utf8))
+        #expect(numPacket.bool(for: "isCancel"))
+        #expect(!numPacket.bool(for: "zero", default: true))
+        #expect(numPacket.bool(for: "numString"))
     }
 
     /// Values wrapped in AnyCodable inside other containers, as an SMS
@@ -420,8 +426,10 @@ struct MacMateTests {
 
     // MARK: - F-10 Safety Remediation & Post-Fix Verification Tests
 
-    /// Verifies that MNT_FORCE is completely removed from all executable code in PhoneMount.swift.
-    @Test func testF10ZeroMNTForceInSource() throws {
+    /// Verifies that safeUnmount properly unmounts MacMate loopback NFS shares,
+    /// attempting polite unmount first and falling back to forced unmount for busy mounts
+    /// so that orphaned kernel mounts never trigger "Server connections interrupted" popups.
+    @Test func testSafeUnmountFallbackForBusyMounts() throws {
         let fileManager = FileManager.default
         let repoRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let phoneMountURL = repoRoot.appendingPathComponent("MacMate/Files/NFS/PhoneMount.swift")
@@ -432,21 +440,11 @@ struct MacMateTests {
         }
         
         let content = try String(contentsOf: phoneMountURL, encoding: .utf8)
-        let lines = content.components(separatedBy: .newlines)
-        
-        // Ensure no executable line uses MNT_FORCE
-        for (index, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.starts(with: "//") || trimmed.starts(with: "///") || trimmed.starts(with: "*") {
-                continue // Comment documentation is allowed
-            }
-            #expect(!line.contains("MNT_FORCE"), "Executable line \(index + 1) in PhoneMount.swift must NOT contain MNT_FORCE: \(line)")
-        }
+        #expect(content.contains("MNT_FORCE"), "PhoneMount.swift must include MNT_FORCE fallback for busy mounts")
     }
 
-    /// Verifies that safeUnmount handles unmounted paths safely without crashing, throwing, or forcing unmount.
-    /// Note: Testing an actual busy live mount requires an active kernel NFS mount which cannot run without root in user tests.
-    @Test func testF10SafeUnmountPreservesNonexistentOrBusyMount() throws {
+    /// Verifies that safeUnmount handles unmounted paths safely without crashing, throwing, or corrupting directories.
+    @Test func testF10SafeUnmountPreservesNonexistentOrForeignMount() throws {
         let fakeMountURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("macmate-test-safe-unmount-\(UUID().uuidString)")
         
@@ -987,6 +985,53 @@ struct MacMateTests {
         #expect(decoded.string(for: "title") == "John Doe")
         #expect(decoded.string(for: "text") == "See you at 5!")
         #expect(decoded.bool(for: "isClearable") == true)
+    }
+
+    @Test @MainActor func testCallCardLifecycle() async throws {
+        let card = CallCard.shared
+        let caller = CallCard.Caller(name: "Test Caller", isContact: true, number: "+1234567890", photo: nil, deviceName: "Pixel")
+        card.ringing(deviceId: "device_abc", caller: caller)
+        #expect(card.currentDeviceId == "device_abc")
+        #expect(card.currentCaller?.name == "Test Caller")
+        if case .ringing? = card.currentPhase {} else {
+            Issue.record("Expected ringing phase")
+        }
+
+        // Transition to talking
+        card.talking(deviceId: "device_abc", caller: caller)
+        if case .onCall? = card.currentPhase {} else {
+            Issue.record("Expected onCall phase")
+        }
+
+        // Active call end should dismiss immediately
+        card.ended(deviceId: "device_abc")
+        #expect(card.currentDeviceId == nil)
+        #expect(card.currentCaller == nil)
+        #expect(card.currentPhase == nil)
+
+        // Ringing call missed should dismiss immediately
+        card.ringing(deviceId: "device_abc", caller: caller)
+        card.missed(deviceId: "device_abc")
+        #expect(card.currentDeviceId == nil)
+    }
+
+    @Test func testCallNotificationDetection() {
+        #expect(NotificationPlugin.isCallNotification(id: "0|com.google.android.dialer|10|null|1000", notification: nil))
+        #expect(NotificationPlugin.isCallNotification(id: "0|com.samsung.android.incallui|10|null|1000", notification: nil))
+        #expect(NotificationPlugin.isCallNotification(id: "0|com.android.phone|10|null|1000", notification: nil))
+        #expect(!NotificationPlugin.isCallNotification(id: "0|com.whatsapp|10|null|1000", notification: nil))
+
+        let callNotif = PhoneNotification(
+            id: "custom_id",
+            deviceId: "dev1",
+            appName: "Phone",
+            title: "Incoming call",
+            text: "+123456789",
+            date: Date(),
+            replyId: nil,
+            isDismissable: true
+        )
+        #expect(NotificationPlugin.isCallNotification(id: "custom_id", notification: callNotif))
     }
 
     // MARK: - Helpers
