@@ -1,17 +1,17 @@
 {
-  "version": "1.0",
-  "tag": "v1.0",
-  "notes": "### 🚀 MacMate 1.0\n\nMacMate brings your Mac and Android together with a native, fluid macOS experience.\n\n#### 🎨 Brand New Identity & Modern Design\n- Initial release of **MacMate**: \"Your Mac and Android, in sync.\"\n- Polished macOS 15 native UI with Liquid Glass vibrancy, refined materials, and responsive controls.\n- High-resolution application icons across all standard macOS scales and the Share Extension.\n\n#### 📡 Fast Discovery & Secure Pairing\n- Resilient local discovery via Bonjour (mDNS) and UDP broadcast, connecting reliably across campus and office Wi-Fi.\n- Direct IP and Tailscale mesh VPN discovery for seamless remote and cross-subnet connectivity.\n- Secure TLS 1.3 pairing with cryptographic identity verification.\n\n#### 📋 Clipboard, SMS & Notifications\n- Instant two-way clipboard synchronization with sensitive data guards.\n- Live Android notifications with inline quick-reply and one-click two-factor authentication (2FA) code copying.\n- Full SMS conversation threads and instant messaging straight from your Mac.\n\n#### 📁 Loopback NFS Phone Drive & Transfers\n- Mount Android file systems directly into Finder via user-space NFS loopback.\n- Zero-hang unmounting when devices go out of range or sleep.\n- Fast multi-file transfer support from Finder and the macOS Share Sheet.\n\n#### 🪞 Screen Mirroring & Media Remote\n- Integrated scrcpy launcher for high-performance, low-latency screen mirroring.\n- Media remote adapter with playback controls and lock-screen media information.",
+  "version": "2.0",
+  "tag": "v2.0",
+  "notes": "### 🚀 MacMate 2.0\n\nMacMate 2.0 brings major enhancements to notifications, call handling, and phone drive reliability, delivering a native, seamless Mac-Android companion experience.\n\n#### 🔔 Granular Notification Controls & Smart Grouping\n- **Per-App Delivery Modes**: Customize notifications per application with Normal, Silent, Banner Only, or Mute settings.\n- **Smart Grouping**: Group notifications by conversation thread or application in the redesigned Notifications pane.\n- **2FA Auto-Copy Bypass**: One-time verification codes (2FA / OTP) are automatically detected and copied to the clipboard, even for muted apps.\n- **High-Res App Icons**: Automatic local macOS icon resolution for familiar Android applications.\n\n#### 📞 Intelligent Call Handling\n- **Call Card Resilience**: Auto-dismiss calls after carrier timeout (60 seconds) if no further packets arrive.\n- **Ringer Silencing**: Silence phone ringer directly from the macOS call card.\n- **Call State Synchronization**: Instantly clears call cards when a call is answered, rejected, or cancelled on Android.\n\n#### 📁 Zero-Hang NFS Drive Unmounting\n- **Network Interruption Prevention**: Enhanced kernel unmount lifecycle prevents macOS \"Server connections interrupted\" popups when moving out of Wi-Fi range.\n- **Polite & Force Fallback**: Pre-validates loopback mount ownership and cleanly releases open vnodes before stopping the NFS server.",
   "archives": {
     "AppleSilicon": {
-      "name": "MacMate-1.0-AppleSilicon.zip",
-      "size": 3077467,
-      "sha256": "0313e95c7ad905e1229300cf7c4134390e4a34bff8fdec800aaec7f4e4f922b8"
+      "name": "MacMate-2.0-AppleSilicon.zip",
+      "size": 3077465,
+      "sha256": "13f5c545e8510e11e57e992356e88c95687b9412f15fb3d9879a45472d478641"
     },
     "Intel": {
-      "name": "MacMate-1.0-Intel.zip",
-      "size": 3231834,
-      "sha256": "fb9e72f6fff5f6cfb123bacda37418703bb484d35ac236a49c47b491218b35ed"
+      "name": "MacMate-2.0-Intel.zip",
+      "size": 3231832,
+      "sha256": "b0655048df2c15bc76adf081a2b36b269e46d3f9f8c118eb77f1d6e4bad7564d"
     }
   }
 }
