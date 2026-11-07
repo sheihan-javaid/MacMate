@@ -1,5 +1,5 @@
-#!/bin/zsh
-# Rebuilds Vendor/MediaRemoteAdapter from source. Tether reads what's playing
+h#!/bin/zsh
+# Rebuilds Vendor/MediaRemoteAdapter from source. MacMate reads what's playing
 # on the Mac through it: since macOS 15.4 only Apple-signed programs may read
 # Now Playing, so the adapter is loaded by /usr/bin/perl.
 #
@@ -20,6 +20,6 @@ cmake --build "$WORK/build" --config Release -j 8 >/dev/null
 rm -rf "$ROOT/Vendor/MediaRemoteAdapter/MediaRemoteAdapter.framework"
 ditto "$WORK/build/MediaRemoteAdapter.framework" "$ROOT/Vendor/MediaRemoteAdapter/MediaRemoteAdapter.framework"
 cp "$WORK/src/LICENSE" "$ROOT/Vendor/MediaRemoteAdapter/LICENSE"
-cp "$WORK/src/bin/mediaremote-adapter.pl" "$ROOT/Tether/Resources/mediaremote-adapter.pl"
+cp "$WORK/src/bin/mediaremote-adapter.pl" "$ROOT/MacMate/Resources/mediaremote-adapter.pl"
 echo "$COMMIT" > "$ROOT/Vendor/MediaRemoteAdapter/COMMIT"
 echo "Built MediaRemoteAdapter at $COMMIT"

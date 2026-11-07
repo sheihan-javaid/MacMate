@@ -8,11 +8,11 @@ ios
 
 ## Users
 
-People who own an Android phone and use a Mac day to day, and want the two to work together the way an iPhone and a Mac do: phone notifications, texts, files and the clipboard on the Mac without picking up the phone. Most of the time Tether runs in the background; people glance at the menu bar, act on a notification or drop a file, and get back to work. They are not expected to know KDE Connect, networking or certificates.
+People who own an Android phone and use a Mac day to day, and want the two to work together the way an iPhone and a Mac do: phone notifications, texts, files and the clipboard on the Mac without picking up the phone. Most of the time MacMate runs in the background; people glance at the menu bar, act on a notification or drop a file, and get back to work. They are not expected to know KDE Connect, networking or certificates.
 
 ## Product Purpose
 
-Tether is a native macOS companion for Android phones, built on the KDE Connect protocol. It mirrors notifications (with inline replies), syncs SMS conversations, shares files and the clipboard both ways, controls phone media and volume, rings or locks the phone, lets the phone act as a trackpad and presentation remote, and runs Mac shell commands the user has set up, triggered from the phone. Success is the phone feeling like part of the Mac: connected without thought, quick to act on, and invisible when idle.
+MacMate is a native macOS companion for Android phones, built on the KDE Connect protocol. It mirrors notifications (with inline replies), syncs SMS conversations, shares files and the clipboard both ways, controls phone media and volume, rings or locks the phone, lets the phone act as a trackpad and presentation remote, and runs Mac shell commands the user has set up, triggered from the phone. Success is the phone feeling like part of the Mac: connected without thought, quick to act on, and invisible when idle.
 
 ## Positioning
 
@@ -37,8 +37,8 @@ A fully native Swift/SwiftUI client with no third-party dependencies, about 1.5 
 
 ## Brand Commitments
 
-- Name: Tether.
-- App icon and menu bar marks in `Design/` and `Tether/Assets.xcassets`: two interlocking rings (connected) and a severed link (disconnected), monochrome template images in the menu bar. The icon uses a deep-blue-to-cyan palette.
+- Name: MacMate (originally Tether).
+- App icon and menu bar marks in `Design/` and `MacMate/Assets.xcassets`: two interlocking rings (connected) and a severed link (disconnected), monochrome template images in the menu bar. The icon uses a deep-blue-to-cyan palette.
 - License: GPL-2.0, matching the KDE Connect ecosystem.
 
 ## Evidence on Hand

@@ -1,6 +1,6 @@
 # Android notification images
 
-Tether displays the image supplied by KDE Connect beside each notification in
+MacMate displays the image supplied by KDE Connect beside each notification in
 its Notifications pane. When an image is ready before delivery, it also adds a
 PNG attachment to the native macOS notification. macOS decides how attachments
 appear in banners and expanded notifications, depending on system settings.
@@ -9,14 +9,14 @@ appear in banners and expanded notifications, depending on system settings.
 
 The public `UNMutableNotificationContent` API exposes attachments, but no
 per-notification application-icon setter. These notifications still belong to
-Tether and retain Tether's app icon. An attachment is supplementary content; it
+MacMate and retain MacMate's app icon. An attachment is supplementary content; it
 does not replace the originating application's identity.
 
 KDE Connect's Android notification plugin selects the notification's large icon
 first, then its small icon, then its legacy icon, and encodes that as PNG. The
 large icon can be a contact photo or conversation avatar. There is no separate,
 guaranteed application-logo field in this notification packet. Consequently,
-Tether must not label the received image an application logo or share it across
+MacMate must not label the received image an application logo or share it across
 all notifications from the same app.
 
 The Android plugin includes `payloadHash` (currently the MD5 of the PNG) even
@@ -32,7 +32,7 @@ Sources checked:
 
 ## Delivery, cache and fallback
 
-- Reuse Tether's existing TLS payload downloader and certificate pinning.
+- Reuse MacMate's existing TLS payload downloader and certificate pinning.
 - Limit notification image payloads to 1 MiB before downloading. Decode only
   PNG, downsample to at most 128 pixels per side, and re-encode as PNG.
 - Cache in memory by device ID and explicit image hash, with limits of 128
@@ -75,7 +75,7 @@ Manual acceptance checks on a paired Android phone:
    with no repeat banner when the image eventually arrives.
 5. Dismiss/update a notification or disconnect before its image arrives. Verify
    no obsolete alert is posted. Repeat with two phones using the same app.
-6. Check collapsed and expanded notifications on macOS 15 and 26. The Tether
+6. Check collapsed and expanded notifications on macOS 15 and 26. The MacMate
    app icon is expected to remain. Attachment visibility is controlled by macOS.
 
 These manual checks require a paired device and are not implied by unit tests.
@@ -85,7 +85,7 @@ These manual checks require a paired device and are not implied by unit tests.
 On Apple Silicon, macOS 26.6, Xcode 26.2 / Swift 6.2.3:
 
 - Debug app build passed.
-- The `TetherTests` target passed: 40 test cases, 6 skipped, 0 failed (53
+- The `MacMateTests` target passed (formerly `TetherTests`): 40 test cases, 6 skipped, 0 failed (53
   passing invocations when parameterized tests are expanded). All eight new
   `NotificationImagesTests` passed, including native attachment creation and
   source-file lifetime. UI tests and paired-phone acceptance checks were not run.

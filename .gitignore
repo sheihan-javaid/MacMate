@@ -1,19 +1,114 @@
+# MacMate .gitignore
+# Comprehensive ignore rules for macOS, Xcode, Swift, IDEs, tests, sensitive files, and runtime data
+
+# ==========================================
+# macOS-generated files
+# ==========================================
 .DS_Store
-*.swp
-*~
-xcuserdata/
-*.xcworkspace/xcuserdata/
-*.xcuserdatad/
-DerivedData/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==========================================
+# Xcode & Swift Build Artifacts
+# ==========================================
 build/
 .build/
+DerivedData/
 build_derived/
-*.dmg
-dmg_staging/
 build_release/
+*.build/
+*.xcbuilddata/
+*.hmap
+*.ipa
+*.app
+*.dSYM/
+*.dSYM.zip
+*.xctest
+*.appex
+
+# User-specific Xcode schemes, workspaces, and states
+xcuserdata/
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+*.xcbkptlist
+*.xcuserstatedata
+
+# Swift Package Manager generated artifacts
+.swiftpm/
+Package.pins
+
+# ==========================================
+# IDE & Editor Files
+# ==========================================
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ==========================================
+# Test & Development Artifacts
+# ==========================================
+*.xcresult/
+*.xcresult
+*.xcresult.zip
+*.xctestrun
+*.coverage
+*.profdata
+*.profraw
+*.trace
+/tmp/shots/
+/tmp/MacMateDerivedData/
+
+# ==========================================
+# Secrets & Sensitive Local Configuration
+# ==========================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+*.keychain-db
+*.keychain
+
+# ==========================================
+# Runtime & Application Data
+# ==========================================
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.crash
+staging/
+dmg_staging/
 dmg_staging*/
 dist/
+*.dmg
+*.zip
 
-# Local design and marketing work, kept out of the repository
+# Local design, marketing, and scratch directories
 Design/
 marketing/
+scratch/

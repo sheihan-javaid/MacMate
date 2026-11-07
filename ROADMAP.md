@@ -1,14 +1,14 @@
 # Roadmap
 
-What Tether does today, what's being built next, and what isn't possible.
+What MacMate does today, what's being built next, and what isn't possible.
 
-Everything here works with the regular **KDE Connect** app on Android from Google Play or F-Droid. Tether never needs a custom phone app, so features that would need one are listed under [Not possible](#not-possible) rather than promised.
+Everything here works with the regular **KDE Connect** app on Android from Google Play or F-Droid. MacMate never needs a custom phone app, so features that would need one are listed under [Not possible](#not-possible) rather than promised.
 
-Planned features have no dates. Ideas and bug reports are welcome in [Issues](https://github.com/subhashhhhhh/Tether/issues).
+Planned features have no dates. Ideas and bug reports are welcome in [Issues](https://github.com/subhashhhhhh/MacMate/issues).
 
 ## Available now
 
-As of Tether 1.9.1.
+As of MacMate 1.9.1.
 
 ### Connecting
 - [x] Finds your phone automatically on the same Wi-Fi, including networks that block broadcasts (through Bonjour), and reconnects within seconds when it rejoins
@@ -23,9 +23,9 @@ As of Tether 1.9.1.
 - [x] Phone notifications in macOS Notification Center
 - [x] Reply to messages (SMS, WhatsApp, Telegram, Signal and others) from the banner
 - [x] Dismissing on the Mac dismisses on the phone
-- [x] Pictures from notifications, such as a sender's photo, in banners and in Tether's list
+- [x] Pictures from notifications, such as a sender's photo, in banners and in MacMate's list
 - [x] No duplicate WhatsApp alerts while WhatsApp for Mac is running; clicking a WhatsApp notification opens it
-- [x] **Copy verification codes.** Sign-in codes in notifications get a Copy Code button in the banner and in Tether, with an option to copy them automatically
+- [x] **Copy verification codes.** Sign-in codes in notifications get a Copy Code button in the banner and in MacMate, with an option to copy them automatically
 - [x] Incoming calls in a floating card with the caller's name and photo and a **Silence** button, which becomes an on-call pill with a timer
 - [x] Missed call notifications
 - [x] Pauses what's playing on the Mac during a call, and resumes it afterwards
@@ -38,7 +38,7 @@ As of Tether 1.9.1.
 
 ### Files and clipboard
 - [x] Send files by dropping them on the window or the menu bar popover
-- [x] **Share › Tether** in Finder, Photos, Safari and other apps, with a chooser when several phones are connected
+- [x] **Share › MacMate** in Finder, Photos, Safari and other apps, with a chooser when several phones are connected
 - [x] Several files at once, of any size
 - [x] Files from the phone land in Downloads, with progress
 - [x] Clipboard sync both ways (text)
@@ -63,7 +63,7 @@ As of Tether 1.9.1.
 - [x] Light and Dark mode, accent colour, and a Reduce Motion setting
 - [x] Lock the Mac when your phone leaves (optional)
 - [x] Updates itself, after checking each update's signature
-- [x] Homebrew install: `brew install --cask subhashhhhhh/tether/tether`
+- [x] Homebrew install: `brew install --cask subhashhhhhh/macmate/macmate`
 - [x] Apple Silicon and Intel, macOS 15 Sequoia or later
 
 ## Planned
@@ -91,6 +91,6 @@ These would need features the KDE Connect Android app doesn't have, or that macO
 - **Show Mac notifications on the phone.** macOS doesn't let apps read other apps' notifications.
 - **Seek in a Safari video from the phone.** Safari ignores seeking from other apps; play, pause and skip work.
 - **Answer or decline calls from the Mac.** KDE Connect for Android can only silence the ringer, and call audio would stay on the phone anyway.
-- **Android app icons in notifications.** The phone sends a notification's picture but not the app's icon, and macOS always shows Tether's icon in the corner of a banner. Fetching icons online is off the table, since Tether doesn't use the internet.
+- **Android app icons in notifications.** The phone sends a notification's picture but not the app's icon, and macOS always shows MacMate's icon in the corner of a banner. Fetching icons online is off the table, since MacMate doesn't use the internet.
 - **Send the phone's clipboard automatically.** Since Android 10, apps in the background can't read the clipboard, so KDE Connect only sends it when you tap its "Send clipboard" button or tile. The Mac's clipboard still reaches the phone automatically.
 - **Clipboard images and files.** KDE Connect's clipboard sync is text only. Use Share or drag and drop instead.

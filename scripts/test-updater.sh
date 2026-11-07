@@ -15,16 +15,19 @@ FIXTURE="$WORK/fixture"
 mkdir -p "$FIXTURE"
 trap '[[ -n "${SERVER_PID:-}" ]] && kill $SERVER_PID 2>/dev/null; rm -rf "$WORK"' EXIT
 
-IDENTITY="Tether Self-Signed"
+IDENTITY="MacMate Self-Signed"
+if ! security find-identity -p codesigning | grep -q ""$IDENTITY""; then
+  IDENTITY="Tether Self-Signed"
+fi
 SIGNED=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="" OTHER_CODE_SIGN_FLAGS="--timestamp=none")
 
 build() { # <derived> <settings...>
   local derived=$1; shift
-  xcodebuild -project Tether.xcodeproj -scheme Tether -configuration Release \
+  xcodebuild -project MacMate.xcodeproj -scheme MacMate -configuration Release \
     -destination 'generic/platform=macOS' -derivedDataPath "$derived" \
     ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=NO "$@" build -quiet > "$derived.log" 2>&1 \
     || { tail -20 "$derived.log" >&2; exit 1; }
-  echo "$derived/Build/Products/Release/Tether.app"
+  echo "$derived/Build/Products/Release/MacMate.app"
 }
 
 echo "==> Building fixtures"
@@ -43,8 +46,8 @@ sleep 1
 echo "==> Running UpdateInstallerTests"
 # The test host must be signed like a release, since the updater compares the
 # download's certificate with the running app's.
-TEST_RUNNER_TETHER_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_TETHER_UPDATE_SERVER="http://127.0.0.1:$PORT" \
-  xcodebuild test -project Tether.xcodeproj -scheme Tether -destination 'platform=macOS' \
+TEST_RUNNER_MACMATE_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_TETHER_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_MACMATE_UPDATE_SERVER="http://127.0.0.1:$PORT" TEST_RUNNER_TETHER_UPDATE_SERVER="http://127.0.0.1:$PORT" \
+  xcodebuild test -project MacMate.xcodeproj -scheme MacMate -destination 'platform=macOS' \
     -derivedDataPath "$WORK/test" "${SIGNED[@]}" \
-    -only-testing:TetherTests/UpdateInstallerTests 2>&1 \
+    -only-testing:MacMateTests/UpdateInstallerTests 2>&1 \
   | grep -E "✔|✘|passed|failed|error:|TEST (SUCCEEDED|FAILED)" | grep -v "^$"
