@@ -1,17 +1,17 @@
 {
   "version": "1.9.1",
   "tag": "v1.9.1",
-  "notes": "### 📡 Finds your phone faster\n- Tether now also finds your phone through Bonjour, which works on office and campus Wi-Fi that blocks KDE Connect's usual broadcasts. When your phone drops off Wi-Fi and comes back, it reconnects on its own within seconds instead of waiting up to 45. By @zzjjaayy (#7)\n- On Macs with corporate security software, discovery could freeze at launch, so a phone that dropped off Wi-Fi was never found again until Tether restarted. Fixed by @zzjjaayy (#6)\n- macOS may ask once whether Tether can find devices on your local network. Allow it so Bonjour discovery works.\n\n### 📁 Phone drive\n- Fixed \"server not responding\" prompts asking you to disconnect when your phone went out of range or to sleep while its drive was open.\n\n### 🔒 Pairing\n- Accepting a pairing request now only ever pairs the device you were shown, even if another request arrives while the prompt is open. By @youp211 (#9)\n\nThank you @zzjjaayy and @youp211!",
+  "notes": "### 🚀 MacMate 1.9.1\n\nMacMate brings your Mac and Android together with a native, fluid macOS experience.\n\n#### 🎨 Brand New Identity & Modern Design\n- Complete rebranding to **MacMate**: \"Your Mac and Android, in sync.\"\n- Polished macOS 15 native UI with Liquid Glass vibrancy, refined materials, and responsive controls.\n- Synchronized application icons across all standard macOS scales and the Share Extension.\n\n#### 📡 Fast Discovery & Secure Pairing\n- Resilient local discovery via Bonjour (mDNS) and UDP broadcast, connecting reliably across campus and office Wi-Fi.\n- Direct IP and Tailscale mesh VPN discovery for seamless remote and cross-subnet connectivity.\n- Secure TLS 1.3 pairing with cryptographic identity verification.\n\n#### 📋 Clipboard, SMS & Notifications\n- Instant two-way clipboard synchronization with sensitive data guards.\n- Live Android notifications with inline quick-reply and one-click two-factor authentication (2FA) code copying.\n- Full SMS conversation threads and instant messaging straight from your Mac.\n\n#### 📁 Loopback NFS Phone Drive & Transfers\n- Mount Android file systems directly into Finder via user-space NFS loopback.\n- Zero-hang unmounting when devices go out of range or sleep.\n- Fast multi-file transfer support from Finder and the macOS Share Sheet.\n\n#### 🪞 Screen Mirroring & Media Remote\n- Integrated scrcpy launcher for high-performance, low-latency screen mirroring.\n- Media remote adapter with playback controls and lock-screen media information.",
   "archives": {
     "AppleSilicon": {
-      "name": "Tether-1.9.1-AppleSilicon.zip",
-      "size": 2450029,
-      "sha256": "37bc420be0c78b9f1cd4c087797eea9a1ef98b9c379280e45e967909ef90dac8"
+      "name": "MacMate-1.9.1-AppleSilicon.zip",
+      "size": 3019788,
+      "sha256": "41d162b73b09eb0283f41a97a647fe0c036f65b7015f9dc91be5c2d9d81af7ad"
     },
     "Intel": {
-      "name": "Tether-1.9.1-Intel.zip",
-      "size": 2588667,
-      "sha256": "c7e26f2804ccd9ad9f84befc774df3f63fcdd4e8f3366a895a4f9c61b3b3cf2c"
+      "name": "MacMate-1.9.1-Intel.zip",
+      "size": 3170361,
+      "sha256": "22f37f663e0cd6e51c3c8396f8dbd98025961f7265f6eaae9577bed51699f230"
     }
   }
 }

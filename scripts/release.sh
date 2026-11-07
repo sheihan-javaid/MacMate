@@ -27,7 +27,10 @@ MIN_MACOS=$(xcodebuild -project MacMate.xcodeproj -target MacMate -configuration
   | awk -F' = ' '/ MACOSX_DEPLOYMENT_TARGET = / { print $2; exit }')
 [[ -n "$VERSION" ]] || { echo "Could not read MARKETING_VERSION" >&2; exit 1; }
 
-IDENTITY="Tether Self-Signed"
+IDENTITY="MacMate Self-Signed"
+if ! security find-identity -p codesigning | grep -q "\"$IDENTITY\""; then
+  IDENTITY="Tether Self-Signed"
+fi
 TAP_REPO="sheihan-javaid/homebrew-macmate"
 security find-identity -p codesigning | grep -q "\"$IDENTITY\"" \
   || { echo "The \"$IDENTITY\" signing identity isn't in the keychain (see docs/signing.md)" >&2; exit 1; }
