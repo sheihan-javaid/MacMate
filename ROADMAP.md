@@ -8,7 +8,7 @@ Planned features have no dates. Ideas and bug reports are welcome in [Issues](ht
 
 ## Available now
 
-As of MacMate 1.9.1.
+As of MacMate 1.0.
 
 ### Connecting
 - [x] Finds your phone automatically on the same Wi-Fi, including networks that block broadcasts (through Bonjour), and reconnects within seconds when it rejoins

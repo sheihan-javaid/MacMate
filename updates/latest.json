@@ -1,17 +1,17 @@
 {
-  "version": "1.9.1",
-  "tag": "v1.9.1",
-  "notes": "### 🚀 MacMate 1.9.1\n\nMacMate brings your Mac and Android together with a native, fluid macOS experience.\n\n#### 🎨 Brand New Identity & Modern Design\n- Complete rebranding to **MacMate**: \"Your Mac and Android, in sync.\"\n- Polished macOS 15 native UI with Liquid Glass vibrancy, refined materials, and responsive controls.\n- Synchronized application icons across all standard macOS scales and the Share Extension.\n\n#### 📡 Fast Discovery & Secure Pairing\n- Resilient local discovery via Bonjour (mDNS) and UDP broadcast, connecting reliably across campus and office Wi-Fi.\n- Direct IP and Tailscale mesh VPN discovery for seamless remote and cross-subnet connectivity.\n- Secure TLS 1.3 pairing with cryptographic identity verification.\n\n#### 📋 Clipboard, SMS & Notifications\n- Instant two-way clipboard synchronization with sensitive data guards.\n- Live Android notifications with inline quick-reply and one-click two-factor authentication (2FA) code copying.\n- Full SMS conversation threads and instant messaging straight from your Mac.\n\n#### 📁 Loopback NFS Phone Drive & Transfers\n- Mount Android file systems directly into Finder via user-space NFS loopback.\n- Zero-hang unmounting when devices go out of range or sleep.\n- Fast multi-file transfer support from Finder and the macOS Share Sheet.\n\n#### 🪞 Screen Mirroring & Media Remote\n- Integrated scrcpy launcher for high-performance, low-latency screen mirroring.\n- Media remote adapter with playback controls and lock-screen media information.",
+  "version": "1.0",
+  "tag": "v1.0",
+  "notes": "### 🚀 MacMate 1.0\n\nMacMate brings your Mac and Android together with a native, fluid macOS experience.\n\n#### 🎨 Brand New Identity & Modern Design\n- Initial release of **MacMate**: \"Your Mac and Android, in sync.\"\n- Polished macOS 15 native UI with Liquid Glass vibrancy, refined materials, and responsive controls.\n- High-resolution application icons across all standard macOS scales and the Share Extension.\n\n#### 📡 Fast Discovery & Secure Pairing\n- Resilient local discovery via Bonjour (mDNS) and UDP broadcast, connecting reliably across campus and office Wi-Fi.\n- Direct IP and Tailscale mesh VPN discovery for seamless remote and cross-subnet connectivity.\n- Secure TLS 1.3 pairing with cryptographic identity verification.\n\n#### 📋 Clipboard, SMS & Notifications\n- Instant two-way clipboard synchronization with sensitive data guards.\n- Live Android notifications with inline quick-reply and one-click two-factor authentication (2FA) code copying.\n- Full SMS conversation threads and instant messaging straight from your Mac.\n\n#### 📁 Loopback NFS Phone Drive & Transfers\n- Mount Android file systems directly into Finder via user-space NFS loopback.\n- Zero-hang unmounting when devices go out of range or sleep.\n- Fast multi-file transfer support from Finder and the macOS Share Sheet.\n\n#### 🪞 Screen Mirroring & Media Remote\n- Integrated scrcpy launcher for high-performance, low-latency screen mirroring.\n- Media remote adapter with playback controls and lock-screen media information.",
   "archives": {
     "AppleSilicon": {
-      "name": "MacMate-1.9.1-AppleSilicon.zip",
-      "size": 3019788,
-      "sha256": "41d162b73b09eb0283f41a97a647fe0c036f65b7015f9dc91be5c2d9d81af7ad"
+      "name": "MacMate-1.0-AppleSilicon.zip",
+      "size": 3019780,
+      "sha256": "a7575e77ce297b101850ae685358e1c4571ceef3ac0854666eaab7bf87c8a70c"
     },
     "Intel": {
-      "name": "MacMate-1.9.1-Intel.zip",
-      "size": 3170361,
-      "sha256": "22f37f663e0cd6e51c3c8396f8dbd98025961f7265f6eaae9577bed51699f230"
+      "name": "MacMate-1.0-Intel.zip",
+      "size": 3170346,
+      "sha256": "e0267bdbff06981de64dd446a9d0315c898c0ebebcbc5b9bebf3fc3b30715de4"
     }
   }
 }
