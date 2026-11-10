@@ -8,5 +8,9 @@
 	<array>
 		<string>_kdeconnect._udp</string>
 	</array>
+	<key>NSLocationUsageDescription</key>
+	<string>MacMate needs Location Services access to read this Mac's Wi-Fi network name (SSID) so it can be shared with paired devices.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MacMate needs Location Services access when in use to read this Mac's Wi-Fi network name (SSID) so it can be shared with paired devices.</string>
 </dict>
 </plist>

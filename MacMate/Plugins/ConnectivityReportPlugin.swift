@@ -23,14 +23,19 @@ public struct SignalStrength: Sendable, Equatable {
     }
 }
 
-/// Tracks the phone's cellular connectivity.
+/// Tracks the phone's cellular connectivity and, when enabled, shares this Mac's
+/// Wi-Fi SSID with paired devices.
 ///
 /// The peer sends `kdeconnect.connectivity_report` with a `signalStrengths` object
 /// keyed by SIM subscription id, each holding `networkType` and `signalStrength`.
 /// It may also carry a top-level `ssid` string naming the phone's WiFi network.
-public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, @unchecked Sendable {
+///
+/// When `shouldSendSSID` is true, this Mac also emits `kdeconnect.connectivity_report`
+/// with its own `ssid` so peers can display the Mac's network name.
+public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, WiFiSSIDMonitorDelegate, @unchecked Sendable {
 
     public let supportedPacketTypes = ["kdeconnect.connectivity_report"]
+    public let outgoingPacketTypes = ["kdeconnect.connectivity_report"]
 
     /// Reported signal per device, keyed by device id. A device can have several
     /// subscriptions (dual SIM), so the value is the strongest one.
@@ -40,29 +45,45 @@ public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, @u
     /// The phone's WiFi SSID per device, keyed by device id. Empty/invalid values are removed.
     @Published public private(set) var wifiSSID: [String: String] = [:]
 
+    /// Injectible provider for the Mac's own WiFi SSID (CoreWLAN in production, mock in tests).
+    public var ssidProvider: WiFiSSIDProvider = CoreWLANSSIDProvider()
+    /// When true, this Mac sends its SSID to connected peers. Set by MacMateService
+    /// based on the user setting. Defaults to false.
+    public var shouldSendSSID: Bool = false
+
+    /// Active connections keyed by device id, used to push SSID updates.
+    internal var activeConnections: [String: DeviceConnection] = [:]
+
     public init() {}
 
-    public func onConnected(connection: DeviceConnection) {}
+    public func onConnected(connection: DeviceConnection) {
+        guard let deviceId = connection.peerDeviceInfo?.deviceId else { return }
+        activeConnections[deviceId] = connection
+        if shouldSendSSID, let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) {
+            sendSSID(ssid, to: connection)
+        }
+    }
 
     public func onDisconnected(connection: DeviceConnection) {
         guard let deviceId = connection.peerDeviceInfo?.deviceId else { return }
+        activeConnections.removeValue(forKey: deviceId)
         signalStrength.removeValue(forKey: deviceId)
         subscriptions.removeValue(forKey: deviceId)
         wifiSSID.removeValue(forKey: deviceId)
     }
 
-    /// Sanitises a raw SSID string from the peer. Returns an empty string for
-    /// nil, blank, `"<unknown ssid>"`, `"0x"`, or a value that is only quotes.
-    private func sanitizeSsid(_ raw: String?) -> String {
-        guard let raw else { return "" }
-        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("\"") && s.hasSuffix("\"") && s.count > 1 {
-            s = String(s.dropFirst().dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Sends this Mac's WiFi SSID to all connected peers.
+    public func broadcastSSID() {
+        guard shouldSendSSID else { return }
+        guard let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) else { return }
+        for connection in activeConnections.values {
+            sendSSID(ssid, to: connection)
         }
-        if s.isEmpty || s.lowercased() == "<unknown ssid>" || s == "0x" {
-            return ""
-        }
-        return s
+    }
+
+    private func sendSSID(_ ssid: String, to connection: DeviceConnection) {
+        let packet = NetworkPacket(type: "kdeconnect.connectivity_report", body: ["ssid": ssid])
+        connection.send(packet: packet)
     }
 
     public func handlePacket(connection: DeviceConnection, packet: NetworkPacket) {
@@ -84,15 +105,20 @@ public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, @u
         }
 
         if let rawSsid = packet.string(for: "ssid") {
-            let ssid = sanitizeSsid(rawSsid)
-            if ssid.isEmpty {
-                wifiSSID.removeValue(forKey: deviceId)
-            } else {
+            if let ssid = sanitizeSsid(rawSsid) {
                 wifiSSID[deviceId] = ssid
+            } else {
+                wifiSSID.removeValue(forKey: deviceId)
             }
         } else {
             // No SSID key in this report: the peer has no WiFi SSID to report right now.
             wifiSSID.removeValue(forKey: deviceId)
         }
+    }
+
+    // MARK: - WiFiSSIDMonitorDelegate
+
+    public func ssidDidChange() {
+        broadcastSSID()
     }
 }

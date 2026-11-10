@@ -5,6 +5,7 @@
 
 import SwiftUI
 import UserNotifications
+import CoreLocation
 
 @MainActor
 public struct SettingsView: View {
@@ -295,6 +296,20 @@ private struct GeneralSettings: View {
                     Text("Lock this Mac when your phone leaves")
                     Text("Locks the screen when your phone has been disconnected for half a minute, such as when you walk away with it.")
                 }
+
+                Toggle(isOn: Binding(
+                    get: { viewModel.shareWiFiSSID },
+                    set: { viewModel.shareWiFiSSID = $0 }
+                )) {
+                    Text("Share Wi-Fi network name with paired devices")
+                    Text("Lets your phone show this Mac's current Wi-Fi network name in its device card. Requires Location Services permission on macOS.")
+                }
+                if viewModel.locationAuthStatus == .denied {
+                    Button("Open Location Settings…") { viewModel.openLocationSettings() }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             TailscaleSection(viewModel: viewModel)
@@ -443,6 +458,19 @@ private struct PermissionsSettings: View {
                         Button("Allow…") { viewModel.promptAccessibility() }
                     }
                 }
+
+                PermissionRow(
+                    title: "Location Services",
+                    detail: "Required to share this Mac's Wi-Fi network name with paired devices.",
+                    systemImage: "location",
+                    state: locationState
+                ) {
+                    if viewModel.locationAuthStatus == .notDetermined {
+                        Button("Allow") { viewModel.requestLocationPermission() }
+                    } else {
+                        Button("Open Settings…") { viewModel.openLocationSettings() }
+                    }
+                }
             } footer: {
                 Text("MacMate talks to your devices directly, over your local network or Tailscale. Nothing is sent to a server.")
                     .foregroundStyle(.secondary)
@@ -463,6 +491,14 @@ private struct PermissionsSettings: View {
     private var notificationState: PermissionState {
         switch viewModel.notificationAuthStatus {
         case .authorized, .provisional, .ephemeral: .granted
+        case .denied: .denied
+        default: .needed
+        }
+    }
+
+    private var locationState: PermissionState {
+        switch viewModel.locationAuthStatus {
+        case .authorizedAlways, .authorizedWhenInUse: .granted
         case .denied: .denied
         default: .needed
         }

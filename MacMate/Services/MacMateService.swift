@@ -58,6 +58,7 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
     nonisolated(unsafe) private let connectionLock = NSLock()
     nonisolated(unsafe) private var activeDeviceIds = Set<String>()
     /// Address of each connected device, so discovery doesn't re-announce to it.
+    @ObservationIgnored private var wifiSSIDMonitor: WiFiSSIDMonitor?
     nonisolated(unsafe) private var activeHosts: [String: String] = [:]
     /// The live connection to each device, readable from any thread.
     nonisolated(unsafe) private var activeConnections: [String: DeviceConnection] = [:]
@@ -103,6 +104,22 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
         }
         startTailscaleDiscovery()
         MacMateLog("[MacMateService] Service started successfully.")
+
+        // Monitor Wi-Fi SSID changes and broadcast to connected peers (deferred to start()
+        // so CoreWLAN isn't initialized at app launch).
+        wifiSSIDMonitor = WiFiSSIDMonitor()
+        wifiSSIDMonitor?.delegate = connectivityReportPlugin
+
+        // Initialise the should-send flag from the user setting.
+        connectivityReportPlugin.shouldSendSSID = SettingsViewModel.shared.shareWiFiSSID
+    }
+
+    /// Called by SettingsViewModel when the user toggles "Share Wi-Fi network name".
+    public func updateSSIDSharing(enabled: Bool) {
+        connectivityReportPlugin.shouldSendSSID = enabled
+        if enabled {
+            connectivityReportPlugin.broadcastSSID()
+        }
     }
 
     public func stop() {

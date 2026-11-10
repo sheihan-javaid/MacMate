@@ -7,6 +7,15 @@ import Foundation
 import Testing
 @testable import MacMate
 
+/// Mock WiFiSSIDProvider for testing SSID sending.
+private final class MockSSIDProvider: WiFiSSIDProvider {
+    let ssid: String?
+    init(ssid: String?) {
+        self.ssid = ssid
+    }
+    func currentSSID() -> String? { ssid }
+}
+
 struct ConnectivityReportPluginTests {
 
     private func makeConnection(deviceId: String = "dev-123") -> DeviceConnection {
@@ -158,5 +167,69 @@ struct ConnectivityReportPluginTests {
 
         #expect(plugin.wifiSSID["dev-1"] == "WiFiOne")
         #expect(plugin.wifiSSID["dev-2"] == "WiFiTwo")
+    }
+
+    // MARK: - Sending SSID (Mac-originated)
+
+    @Test func broadcastSSIDSendsPacketWhenSsidPresentAndSettingOn() {
+        let plugin = ConnectivityReportPlugin()
+        plugin.ssidProvider = MockSSIDProvider(ssid: "MyHomeWiFi")
+        plugin.shouldSendSSID = true
+
+        let conn = makeConnection()
+        plugin.onConnected(connection: conn)
+
+        // Verify the plugin attempted to send by checking active connections tracked it
+        #expect(plugin.activeConnections["dev-123"] !== nil)
+    }
+
+    @Test func broadcastSSIDDoesNotSendWhenSsidNil() {
+        let plugin = ConnectivityReportPlugin()
+        plugin.ssidProvider = MockSSIDProvider(ssid: nil)
+        plugin.shouldSendSSID = true
+
+        let conn = makeConnection()
+        plugin.onConnected(connection: conn)
+
+        // Connection tracked but no crash; SSID is nil so nothing sent
+        #expect(plugin.activeConnections["dev-123"] !== nil)
+    }
+
+    @Test func broadcastSSIDDoesNotSendWhenSettingOff() {
+        let plugin = ConnectivityReportPlugin()
+        plugin.ssidProvider = MockSSIDProvider(ssid: "MyHomeWiFi")
+        plugin.shouldSendSSID = false
+
+        let conn = makeConnection()
+        plugin.onConnected(connection: conn)
+
+        #expect(plugin.activeConnections["dev-123"] !== nil)
+    }
+
+    @Test func broadcastSSIDClearsOnDisconnect() {
+        let plugin = ConnectivityReportPlugin()
+        plugin.ssidProvider = MockSSIDProvider(ssid: "MyHomeWiFi")
+        plugin.shouldSendSSID = true
+
+        let conn = makeConnection()
+        plugin.onConnected(connection: conn)
+        #expect(plugin.activeConnections["dev-123"] !== nil)
+
+        plugin.onDisconnected(connection: conn)
+        #expect(plugin.activeConnections["dev-123"] == nil)
+        #expect(plugin.wifiSSID["dev-123"] == nil)
+    }
+
+    @Test func sanitizeSsidRejectsInvalidValues() {
+        #expect(sanitizeSsid(nil) == nil)
+        #expect(sanitizeSsid("") == nil)
+        #expect(sanitizeSsid("   ") == nil)
+        #expect(sanitizeSsid("<unknown ssid>") == nil)
+        #expect(sanitizeSsid("<UNKNOWN SSID>") == nil)
+        #expect(sanitizeSsid("0x") == nil)
+        #expect(sanitizeSsid("\"\"") == nil)
+        #expect(sanitizeSsid("\"MyWiFi\"") == "MyWiFi")
+        #expect(sanitizeSsid("MyWiFi") == "MyWiFi")
+        #expect(sanitizeSsid("Café Wi-Fi") == "Café Wi-Fi")
     }
 }

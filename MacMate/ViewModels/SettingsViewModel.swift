@@ -11,6 +11,7 @@ import Observation
 import ServiceManagement
 import UserNotifications
 import ApplicationServices
+import CoreLocation
 
 @Observable
 @MainActor
@@ -32,9 +33,33 @@ public final class SettingsViewModel {
             MacMateService.shared.refreshTailscale()
         }
     }
-    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    /// Whether this Mac shares its Wi-Fi network name with paired devices.
+    public var shareWiFiSSID: Bool {
+        get { UserDefaults.standard.bool(forKey: "macmate_share_wifi_ssid") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "macmate_share_wifi_ssid")
+            MacMateService.shared.updateSSIDSharing(enabled: newValue)
+        }
+    }
+    /// Current Core Location authorization status.
+    public var locationAuthStatus: CLAuthorizationStatus {
+        locationManager.authorizationStatus
+    }
 
+    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored private var locationDelegate = LocationPermissionDelegate()
+    @ObservationIgnored private var _locationManager: CLLocationManager?
     private var isMockMode: Bool = false
+
+    private var locationManager: CLLocationManager {
+        if _locationManager == nil {
+            let mgr = CLLocationManager()
+            mgr.delegate = locationDelegate
+            locationDelegate.settingsViewModel = self
+            _locationManager = mgr
+        }
+        return _locationManager!
+    }
 
     public init(isMock: Bool = false) {
         self.isMockMode = isMock
@@ -56,6 +81,7 @@ public final class SettingsViewModel {
         self.isAccessibilityTrusted = AXIsProcessTrusted()
         self.checkLaunchAtLoginStatus()
         self.refreshNotificationStatus()
+        _ = self.locationManager // ensure initialized with delegate
     }
 
     public func saveDeviceName(_ newName: String) {
@@ -147,6 +173,16 @@ public final class SettingsViewModel {
         }
     }
 
+    public func requestLocationPermission() {
+        locationManager.requestWhenInUseAuthorization()
+    }
+
+    public func openLocationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // MARK: - Mocks for Previews
 
     #if DEBUG
@@ -180,4 +216,18 @@ public final class SettingsViewModel {
         return vm
     }
     #endif
+}
+
+// MARK: - Location permission helper
+
+/// Handles CLLocationManager delegate callbacks and reports authorization status
+/// to the settings view model on the main actor.
+@MainActor
+public final class LocationPermissionDelegate: NSObject, CLLocationManagerDelegate {
+    public weak var settingsViewModel: SettingsViewModel?
+
+    public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        // Status is read on demand via SettingsViewModel.locationAuthStatus;
+        // no notification needed since views re-read the computed property.
+    }
 }
