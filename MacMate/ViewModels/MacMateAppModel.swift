@@ -44,8 +44,9 @@ public final class MacMateAppModel {
     }
 
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
-    @ObservationIgnored private var deviceCache: [String: DeviceViewModel] = [:]
-    @ObservationIgnored private var isMockMode: Bool = false
+    /// Set to `false` from tests to allow `rebuildDeviceLists()` to run without live service dependencies.
+    @ObservationIgnored internal var isMockMode: Bool = false
+    @ObservationIgnored internal var deviceCache: [String: DeviceViewModel] = [:]
 
     /// Paired devices first (connected, then offline), as shown in the sidebar.
     public var pairedDevices: [DeviceViewModel] {
@@ -131,8 +132,8 @@ public final class MacMateAppModel {
             .store(in: &cancellables)
     }
 
-    /// Returns the cached view model for `id`, creating it once.
-    private func device(id: String, name: String, type: DeviceType, status: DeviceStatus) -> DeviceViewModel {
+    /// Returns the cached view model for `id`, creating it once. Internal for testing.
+    internal func device(id: String, name: String, type: DeviceType, status: DeviceStatus) -> DeviceViewModel {
         let vm = deviceCache[id] ?? DeviceViewModel(id: id, name: name, deviceType: type, status: status)
         deviceCache[id] = vm
         if vm.name != name { vm.name = name }
@@ -140,6 +141,9 @@ public final class MacMateAppModel {
         if vm.status != status {
             vm.status = status
             vm.isAwaitingPairing = false
+            // Clear stale SSID on any status change (reconnect, offline, available);
+            // it is repopulated only when a fresh connectivity report arrives.
+            vm.wifiSSID = nil
         }
         return vm
     }
@@ -295,6 +299,11 @@ public final class MacMateAppModel {
             if let signal = service.connectivityReportPlugin.signalStrength[id] {
                 update(dev, \.networkType, signal.networkType)
                 update(dev, \.cellularSignalStrength, signal.strength)
+            }
+            if let ssid = service.connectivityReportPlugin.wifiSSID[id] {
+                update(dev, \.wifiSSID, ssid.isEmpty ? nil : ssid)
+            } else {
+                update(dev, \.wifiSSID, nil)
             }
             let sims = (service.connectivityReportPlugin.subscriptions[id] ?? [:])
                 .sorted { $0.key < $1.key }

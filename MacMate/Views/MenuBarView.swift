@@ -124,6 +124,9 @@ public struct MenuBarView: View {
                         if let network = device.networkType, !network.isEmpty {
                             Label(network, systemImage: "cellularbars")
                         }
+                        if let ssid = device.wifiSSID {
+                            Label(ssid, systemImage: "wifi")
+                        }
                         if device.isViaTailscale {
                             Label("Tailscale", systemImage: "point.3.connected.trianglepath.dotted")
                         }

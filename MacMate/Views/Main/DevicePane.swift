@@ -164,6 +164,10 @@ public struct DevicePane: View {
                         telemetryRow(label: "Cellular Network", value: network, icon: "cellularbars")
                         Divider()
                     }
+                    if let ssid = device.wifiSSID {
+                        telemetryRow(label: "Wi-Fi Network", value: ssid, icon: "wifi")
+                        Divider()
+                    }
                     telemetryRow(label: "Device ID", value: device.id, icon: "number")
                 }
             }

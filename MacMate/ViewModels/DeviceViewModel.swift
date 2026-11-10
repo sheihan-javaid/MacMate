@@ -29,6 +29,8 @@ public final class DeviceViewModel: Identifiable, Hashable {
     public var isCharging: Bool
     public var networkType: String?
     public var cellularSignalStrength: Int?
+    /// The phone's WiFi network name (SSID), when reported by the peer.
+    public var wifiSSID: String?
     /// The phone's SIMs, when it has reported them.
     public var sims: [PhoneSIM] = []
 
@@ -95,6 +97,7 @@ public final class DeviceViewModel: Identifiable, Hashable {
         isCharging: Bool = false,
         networkType: String? = nil,
         cellularSignalStrength: Int? = nil,
+        wifiSSID: String? = nil,
         volume: Float = 0.5,
         isMuted: Bool = false,
         nowPlayingTitle: String? = nil,
@@ -115,6 +118,7 @@ public final class DeviceViewModel: Identifiable, Hashable {
         self.isCharging = isCharging
         self.networkType = networkType
         self.cellularSignalStrength = cellularSignalStrength
+        self.wifiSSID = wifiSSID
         self.volume = volume
         self.isMuted = isMuted
         self.nowPlayingTitle = nowPlayingTitle

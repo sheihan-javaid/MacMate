@@ -86,6 +86,13 @@ public struct OverviewPane: View {
                                     statusColor: .secondary
                                 )
                             }
+                            if let ssid = device.wifiSSID {
+                                MMStatusPill(
+                                    title: ssid,
+                                    systemImage: "wifi",
+                                    statusColor: .secondary
+                                )
+                            }
                         }
                     }
                 }
