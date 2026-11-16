@@ -20,7 +20,7 @@ import UniformTypeIdentifiers
 ///
 /// All hard limits below are enforced by the PocketLink Android peer and must
 /// never be exceeded by macmate.
-public struct WallpaperPreparer {
+public nonisolated struct WallpaperPreparer {
     /// PocketLink hard caps (docs/WALLPAPER_SYNC_PROTOCOL.md §5).
     public static let maxTransferBytes: Int64 = 8 * 1024 * 1024   // 8 MB
     public static let maxImageSide: Int = 4096
@@ -41,16 +41,14 @@ public struct WallpaperPreparer {
         public let sourceURL: URL
     }
 
-    /// Captures the primary screen's wallpaper via `NSWorkspace.desktopImageURL(for:)`.
+    /// The primary screen's wallpaper file, via `NSWorkspace.desktopImageURL(for:)`.
     ///
     /// Uses `NSScreen.screens.first` (the primary display) rather than
     /// `NSScreen.main`, which follows keyboard focus and would flip the wallpaper
-    /// between displays.
-    ///
-    /// Returns `nil` when there is no static file to send (dynamic/aerial/video
-    /// wallpapers report no URL) or the file can't be read. Logs quietly and
-    /// never crashes.
-    public static func prepareMainScreenWallpaper() -> Result? {
+    /// between displays. Main thread only. Returns `nil` when there is no static
+    /// file to send (dynamic/aerial/video wallpapers report no URL).
+    @MainActor
+    public static func mainScreenWallpaperURL() -> URL? {
         guard let screen = NSScreen.screens.first else {
             MacMateLog("[WallpaperPreparer] No screens; skipping wallpaper send")
             return nil
@@ -59,7 +57,7 @@ public struct WallpaperPreparer {
             MacMateLog("[WallpaperPreparer] No static wallpaper file for main screen (dynamic/aerial/video); skipping")
             return nil
         }
-        return prepareFile(url)
+        return url
     }
 
     /// Reads and prepares a wallpaper file URL.

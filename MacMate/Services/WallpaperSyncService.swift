@@ -19,14 +19,8 @@ import Foundation
 public final class WallpaperSyncService: NSObject {
     public static let shared = WallpaperSyncService()
 
-    /// Whether wallpaper sharing is enabled (backed by SettingsViewModel, default OFF).
-    public var isEnabled: Bool {
-        get { SettingsViewModel.shared.shareWallpaper }
-        set {
-            SettingsViewModel.shared.shareWallpaper = newValue
-            if newValue { startPollTimer() } else { stopPollTimer() }
-        }
-    }
+    /// Whether wallpaper sharing is enabled (the Settings toggle, default OFF).
+    public var isEnabled: Bool { SettingsViewModel.shared.shareWallpaper }
 
     /// Dedupe-by-hash + min-interval throttle, shared so tests can inspect it.
     public let gatekeeper = WallpaperSendGatekeeper(minSendInterval: 60)
@@ -40,11 +34,31 @@ public final class WallpaperSyncService: NSObject {
     private override init() {
         super.init()
         setupChangeObservers()
-        // Timer starts only when the user enables sharing (default off).
+        // Not started here: MacMateService calls `start()` once it is running.
+        // Reading the setting now would build SettingsViewModel, which needs
+        // MacMateService, which is what is creating this object.
     }
 
     deinit {
         stopPollTimer()
+    }
+
+    // MARK: - Lifecycle
+
+    /// Starts the change poller if sharing was already on at launch.
+    public func start() {
+        if isEnabled { startPollTimer() }
+    }
+
+    /// The Settings toggle changed: start or stop polling, and push right away
+    /// when it was just turned on.
+    public func enabledChanged() {
+        if isEnabled {
+            startPollTimer()
+            sendToAllConnected()
+        } else {
+            stopPollTimer()
+        }
     }
 
     // MARK: - Public triggers
@@ -52,8 +66,11 @@ public final class WallpaperSyncService: NSObject {
     /// Send the wallpaper to one device once it is paired and the link is usable.
     public func requestSend(to deviceId: String, connection: DeviceConnection) {
         guard isEnabled else { return }
+        // AppKit's screen and wallpaper APIs are main-thread only, so read the
+        // file URL here and let the send queue do the decoding and uploading.
+        let wallpaperURL = WallpaperPreparer.mainScreenWallpaperURL()
         sendQueue.async { [weak self] in
-            self?.performSend(deviceId: deviceId, connection: connection)
+            self?.performSend(deviceId: deviceId, connection: connection, wallpaperURL: wallpaperURL)
         }
     }
 
@@ -101,8 +118,8 @@ public final class WallpaperSyncService: NSObject {
 
     // MARK: - Send (runs on sendQueue so the blocking payload upload never blocks the main thread)
 
-    private func performSend(deviceId: String, connection: DeviceConnection) {
-        guard let result = WallpaperPreparer.prepareMainScreenWallpaper() else {
+    private nonisolated func performSend(deviceId: String, connection: DeviceConnection, wallpaperURL: URL?) {
+        guard let wallpaperURL, let result = WallpaperPreparer.prepareFile(wallpaperURL) else {
             MacMateLog("[WallpaperSyncService] No wallpaper to send to \(deviceId)")
             return
         }
@@ -169,14 +186,14 @@ public final class WallpaperSyncService: NSObject {
 
     private func setupChangeObservers() {
         let center = NotificationCenter.default
-        let names: [NSNotification.Name] = [
-            NSWorkspace.activeSpaceDidChangeNotification,
-            NSApplication.didChangeScreenParametersNotification,
-            NSWindow.didChangeScreenNotification
-        ]
-        for name in names {
+        for name in [NSApplication.didChangeScreenParametersNotification, NSWindow.didChangeScreenNotification] {
             center.addObserver(self, selector: #selector(screenChanged), name: name, object: nil)
         }
+        // NSWorkspace posts its notifications on its own center, never on the
+        // default one.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(screenChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
     }
 
     @objc private func screenChanged() {
@@ -203,7 +220,7 @@ public final class WallpaperSyncService: NSObject {
 /// Dedupe by SHA-256 (skip if unchanged since last successful send) plus a
 /// minimum-interval throttle on send attempts (so a disabled phone plugin
 /// isn't hammered with retries).
-public final class WallpaperSendGatekeeper: @unchecked Sendable {
+public nonisolated final class WallpaperSendGatekeeper: @unchecked Sendable {
     public let minSendInterval: TimeInterval
 
     private let lock = NSLock()

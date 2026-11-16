@@ -34,20 +34,21 @@ public final class SettingsViewModel {
         }
     }
     /// Whether this Mac shares its Wi-Fi network name with paired devices.
-    public var shareWiFiSSID: Bool {
-        get { UserDefaults.standard.bool(forKey: "macmate_share_wifi_ssid") }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "macmate_share_wifi_ssid")
-            MacMateService.shared.updateSSIDSharing(enabled: newValue)
+    /// Stored, not computed from UserDefaults, so SwiftUI sees changes.
+    public var shareWiFiSSID: Bool = UserDefaults.standard.bool(forKey: "macmate_share_wifi_ssid") {
+        didSet {
+            guard !isMockMode, oldValue != shareWiFiSSID else { return }
+            UserDefaults.standard.set(shareWiFiSSID, forKey: "macmate_share_wifi_ssid")
+            MacMateService.shared.updateSSIDSharing(enabled: shareWiFiSSID)
         }
     }
     /// Whether this Mac pushes its desktop wallpaper to paired PocketLink devices.
     /// Opt-in and off by default; nothing is sent unless this is on.
-    public var shareWallpaper: Bool {
-        get { UserDefaults.standard.bool(forKey: "macmate_share_wallpaper") }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "macmate_share_wallpaper")
-            // MacMateService.shared.wallpaperSync.isEnabled reads this same key.
+    public var shareWallpaper: Bool = UserDefaults.standard.bool(forKey: "macmate_share_wallpaper") {
+        didSet {
+            guard !isMockMode, oldValue != shareWallpaper else { return }
+            UserDefaults.standard.set(shareWallpaper, forKey: "macmate_share_wallpaper")
+            MacMateService.shared.wallpaperSync.enabledChanged()
         }
     }
     /// Current Core Location authorization status.

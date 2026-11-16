@@ -114,6 +114,7 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
 
         // Initialise the should-send flag from the user setting.
         connectivityReportPlugin.shouldSendSSID = SettingsViewModel.shared.shareWiFiSSID
+        wallpaperSync.start()
     }
 
     /// Called by SettingsViewModel when the user toggles "Share Wi-Fi network name".
