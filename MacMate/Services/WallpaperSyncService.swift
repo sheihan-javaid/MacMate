@@ -30,6 +30,8 @@ public final class WallpaperSyncService: NSObject {
     /// Cheap source-file attribute pre-filter used by the poller (single main screen).
     private var lastSourceAttributes: (size: Int64, modDate: Double)?
     private let attrLock = NSLock()
+    /// The last prepared wallpaper, shared by every phone until the file changes.
+    private var preparedCache: (key: String, result: WallpaperPreparer.Result)?
 
     private override init() {
         super.init()
@@ -119,11 +121,16 @@ public final class WallpaperSyncService: NSObject {
     // MARK: - Send (runs on sendQueue so the blocking payload upload never blocks the main thread)
 
     private nonisolated func performSend(deviceId: String, connection: DeviceConnection, wallpaperURL: URL?) {
-        guard let wallpaperURL, let result = WallpaperPreparer.prepareFile(wallpaperURL) else {
+        let now = Date()
+        // Throttle before the expensive decode and re-encode.
+        guard gatekeeper.canAttempt(deviceId: deviceId, now: now) else {
+            MacMateLog("[WallpaperSyncService] Skipping wallpaper push to \(deviceId) (throttled)")
+            return
+        }
+        guard let wallpaperURL, let result = preparedWallpaper(for: wallpaperURL) else {
             MacMateLog("[WallpaperSyncService] No wallpaper to send to \(deviceId)")
             return
         }
-        let now = Date()
         guard gatekeeper.canSend(deviceId: deviceId, hash: result.sha256, now: now) else {
             MacMateLog("[WallpaperSyncService] Skipping wallpaper push to \(deviceId) (unchanged or throttled)")
             return
@@ -180,6 +187,19 @@ public final class WallpaperSyncService: NSObject {
         )
 
         _ = semaphore.wait(timeout: .distantFuture)
+    }
+
+    /// Decoding, resizing and hashing a wallpaper is the costly part of a send.
+    /// Every connected phone gets the same bytes, so do it once per file version.
+    private nonisolated func preparedWallpaper(for url: URL) -> WallpaperPreparer.Result? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let key = "\(url.path)|\((attributes?[.size] as? NSNumber)?.int64Value ?? -1)|\((attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? -1)"
+        if let cached = attrLock.withLock({ preparedCache }), cached.key == key {
+            return cached.result
+        }
+        guard let result = WallpaperPreparer.prepareFile(url) else { return nil }
+        attrLock.withLock { preparedCache = (key, result) }
+        return result
     }
 
     // MARK: - Change notifications
@@ -239,6 +259,14 @@ public nonisolated final class WallpaperSendGatekeeper: @unchecked Sendable {
         if let last = lastSentHash[deviceId], last == hash { return false }
         if let lastTime = lastAttemptTime[deviceId], now.timeIntervalSince(lastTime) < minSendInterval { return false }
         return true
+    }
+
+    /// `true` if the minimum interval since the last attempt has passed. The
+    /// hash check in `canSend` still follows once the wallpaper is prepared.
+    public func canAttempt(deviceId: String, now: Date) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard let lastTime = lastAttemptTime[deviceId] else { return true }
+        return now.timeIntervalSince(lastTime) >= minSendInterval
     }
 
     public func recordAttempt(deviceId: String, now: Date) {

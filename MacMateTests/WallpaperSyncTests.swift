@@ -45,6 +45,16 @@ struct WallpaperSyncTests {
         #expect(gk.canSend(deviceId: "dev1", hash: "bbb", now: now) == true) // changed -> send
     }
 
+    @Test func canAttemptHonoursMinimumInterval() {
+        let gk = WallpaperSendGatekeeper(minSendInterval: 60)
+        let now = Date()
+        #expect(gk.canAttempt(deviceId: "dev1", now: now) == true)             // never tried
+        gk.recordAttempt(deviceId: "dev1", now: now)
+        #expect(gk.canAttempt(deviceId: "dev1", now: now.addingTimeInterval(30)) == false)
+        #expect(gk.canAttempt(deviceId: "dev1", now: now.addingTimeInterval(61)) == true)
+        #expect(gk.canAttempt(deviceId: "dev2", now: now) == true)             // per device
+    }
+
     @Test func gatekeeperDedupeClearedOnReconnect() {
         let gk = WallpaperSendGatekeeper(minSendInterval: 0)
         let now = Date()
