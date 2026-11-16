@@ -358,8 +358,15 @@ public final class PayloadUploader: @unchecked Sendable {
 
         // Wait for the receiver, bounded by the upstream 30s window. Uses poll()
         // rather than a timer because this queue is blocked by the transfer.
+        // Polled in short slices so a cancel is noticed within a quarter second.
         var pollFd = pollfd(fd: listenSocket, events: Int16(POLLIN), revents: 0)
-        let pollResult = Darwin.poll(&pollFd, 1, Int32(PayloadPort.acceptTimeout * 1000))
+        var pollResult: Int32 = 0
+        let acceptDeadline = Date().addingTimeInterval(PayloadPort.acceptTimeout)
+        while pollResult == 0, Date() < acceptDeadline {
+            if stateLock.withLock({ isFinished }) { return }
+            pollResult = Darwin.poll(&pollFd, 1, 250)
+            if pollResult < 0, errno == EINTR { pollResult = 0 }
+        }
         MacMateLog("[PayloadUploader] poll on fd \(listenSocket) returned \(pollResult) (revents \(pollFd.revents))")
 
         guard pollResult > 0, (pollFd.revents & Int16(POLLIN)) != 0 else {
