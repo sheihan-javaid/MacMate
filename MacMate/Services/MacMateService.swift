@@ -46,6 +46,7 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
     private var pairedDevicesObserver: AnyCancellable?
     private var heardAt: [String: Date] = [:]
     private var reachOutTasks: [String: Task<Void, Never>] = [:]
+    private var reachOutTokens: [String: UUID] = [:]
     private var tailscaleTimer: DispatchSourceTimer?
     private var tailscaleRefreshGeneration: UInt64 = 0
 
@@ -136,6 +137,7 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
             task.cancel()
         }
         reachOutTasks.removeAll()
+        reachOutTokens.removeAll()
         tcpListener.stop()
         tailscaleTimer?.cancel()
         tailscaleTimer = nil
@@ -229,8 +231,16 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
         guard !isDeviceConnected(deviceId: deviceId), reachOutTasks[key] == nil else { return }
         MacMateLog("[MacMateService] Reaching out to \(deviceId) at \(host)")
         udpDiscovery.noteHost(host, belongsTo: deviceId)
+        let token = UUID()
+        reachOutTokens[key] = token
         reachOutTasks[key] = Task {
-            defer { reachOutTasks[key] = nil }
+            defer {
+                // Only clear our own entry: a newer task may have replaced it.
+                if reachOutTokens[key] == token {
+                    reachOutTasks[key] = nil
+                    reachOutTokens[key] = nil
+                }
+            }
             var elapsed = 0.0
             for second in [0, 0.5, 1, 1.5, 2, 5, 10, 21, 30, 45] {
                 try? await Task.sleep(for: .seconds(second - elapsed))
