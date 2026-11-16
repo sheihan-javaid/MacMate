@@ -255,9 +255,6 @@ public nonisolated final class WallpaperSendGatekeeper: @unchecked Sendable {
     public func lastHash(for deviceId: String) -> String? {
         lock.lock(); defer { lock.unlock() }; return lastSentHash[deviceId]
     }
-    public func lastAttemptTime(for deviceId: String) -> Date? {
-        lock.lock(); defer { lock.unlock() }; return lastAttemptTime[deviceId]
-    }
     public func reset(deviceId: String) {
         lock.lock(); defer { lock.unlock() }
         lastSentHash.removeValue(forKey: deviceId)

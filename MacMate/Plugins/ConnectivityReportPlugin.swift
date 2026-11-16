@@ -35,7 +35,6 @@ public struct SignalStrength: Sendable, Equatable {
 public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, WiFiSSIDMonitorDelegate, @unchecked Sendable {
 
     public let supportedPacketTypes = ["kdeconnect.connectivity_report"]
-    public let outgoingPacketTypes = ["kdeconnect.connectivity_report"]
 
     /// Reported signal per device, keyed by device id. A device can have several
     /// subscriptions (dual SIM), so the value is the strongest one.

@@ -49,15 +49,6 @@ extension View {
         }
     }
 
-    /// Glass over imagery (the phone card), where the material should stay clear.
-    @ViewBuilder
-    func clearGlass(in shape: some Shape) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.clear, in: shape)
-        } else {
-            self.background(.ultraThinMaterial, in: shape)
-        }
-    }
 }
 
 /// A round glass button with a symbol, and optionally a caption under it.
@@ -109,27 +100,6 @@ struct GlassCircleButton: View {
                 .background(isProminent ? AnyShapeStyle(.tint) : AnyShapeStyle(.regularMaterial), in: .circle)
                 .overlay(Circle().strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
         }
-    }
-}
-
-/// A small capsule saying how a device is connected.
-struct StatusPill: View {
-    let text: String
-    let systemImage: String
-    var tint: Color = .green
-
-    var body: some View {
-        Label {
-            Text(text)
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
-                .contentTransition(.symbolEffect(.replace))
-        }
-        .font(.callout.weight(.medium))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .glassPanel(radius: 100)
     }
 }
 

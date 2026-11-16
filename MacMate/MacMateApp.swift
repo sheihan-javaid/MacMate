@@ -100,6 +100,3 @@ struct MacMateApp: App {
         }
     }
 }
-
-/// Backward compatibility alias
-typealias TetherApp = MacMateApp

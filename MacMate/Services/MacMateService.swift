@@ -61,7 +61,7 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
     nonisolated(unsafe) private let connectionLock = NSLock()
     nonisolated(unsafe) private var activeDeviceIds = Set<String>()
     /// Address of each connected device, so discovery doesn't re-announce to it.
-    @ObservationIgnored private var wifiSSIDMonitor: WiFiSSIDMonitor?
+    private var wifiSSIDMonitor: WiFiSSIDMonitor?
     nonisolated(unsafe) private var activeHosts: [String: String] = [:]
     /// The live connection to each device, readable from any thread.
     nonisolated(unsafe) private var activeConnections: [String: DeviceConnection] = [:]
@@ -124,40 +124,6 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
         if enabled {
             connectivityReportPlugin.broadcastSSID()
         }
-    }
-
-    public func stop() {
-        guard isRunning else { return }
-        isRunning = false
-
-        udpDiscovery.stop()
-        mdnsDiscovery.stop()
-        pairedDevicesObserver = nil
-        for task in reachOutTasks.values {
-            task.cancel()
-        }
-        reachOutTasks.removeAll()
-        reachOutTokens.removeAll()
-        tcpListener.stop()
-        tailscaleTimer?.cancel()
-        tailscaleTimer = nil
-
-        for conn in connectedDevices.values {
-            conn.disconnect()
-        }
-        for conn in pendingConnections.values {
-            conn.disconnect()
-        }
-        pendingConnections.removeAll()
-        connectedDevices.removeAll()
-        discoveredDevices.removeAll()
-        connectingDeviceIds.removeAll()
-        connectionLock.withLock {
-            activeDeviceIds.removeAll()
-            activeHosts.removeAll()
-            activeConnections.removeAll()
-        }
-        MacMateLog("[MacMateService] Service stopped.")
     }
 
     // MARK: - UDP Discovery Delegate
@@ -721,7 +687,3 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
     }
 }
-
-/// Backward compatibility alias
-public typealias TetherService = MacMateService
-

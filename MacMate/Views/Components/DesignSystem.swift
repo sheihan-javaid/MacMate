@@ -43,36 +43,6 @@ struct DeviceHero: View {
     }
 }
 
-// MARK: - Status
-
-struct BatteryLabel: View {
-    let percent: Int
-    var isCharging: Bool = false
-
-    private var symbol: String {
-        if isCharging { return "battery.100percent.bolt" }
-        switch percent {
-        case ..<13: return "battery.0percent"
-        case ..<38: return "battery.25percent"
-        case ..<63: return "battery.50percent"
-        case ..<88: return "battery.75percent"
-        default: return "battery.100percent"
-        }
-    }
-
-    var body: some View {
-        Label {
-            Text(percent, format: .percent.scale(1))
-                .monospacedDigit()
-        } icon: {
-            Image(systemName: symbol)
-                .foregroundStyle(percent <= 15 && !isCharging ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Battery \(percent) percent\(isCharging ? ", charging" : "")")
-    }
-}
-
 // MARK: - Avatars
 
 /// A contact monogram in one neutral style, as in Messages. Phone numbers get
@@ -202,10 +172,5 @@ extension View {
     /// Applies the user's MacMate motion preference to this view and everything inside it.
     func macmateMotionPreference() -> some View {
         modifier(MotionPreferenceModifier())
-    }
-
-    /// Backward compatibility alias
-    func tetherMotionPreference() -> some View {
-        macmateMotionPreference()
     }
 }

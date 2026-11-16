@@ -373,7 +373,3 @@ struct MacMateCommands: Commands {
         }
     }
 }
-
-/// Backward compatibility alias
-typealias TetherCommands = MacMateCommands
-

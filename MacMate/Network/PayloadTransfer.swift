@@ -425,7 +425,6 @@ public final class PayloadUploader: @unchecked Sendable {
         defer { try? handle.close() }
 
         var sent: Int64 = 0
-        var lastProgress = Date()
         var lastReported: Double = 0
         while sent < size {
             if stateLock.withLock({ isFinished }) {
@@ -449,12 +448,6 @@ public final class PayloadUploader: @unchecked Sendable {
             }
 
             sent += Int64(chunk.count)
-            let now = Date()
-            if now.timeIntervalSince(lastProgress) > PayloadPort.ioStallTimeout {
-                finish(with: .failure(PayloadError.connectionTimeout), onComplete: onComplete)
-                return
-            }
-            lastProgress = now
 
             // Throttle progress callbacks to whole percents (>= 1%).
             let fraction = Double(sent) / Double(size)

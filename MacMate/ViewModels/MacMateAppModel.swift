@@ -389,8 +389,6 @@ public final class MacMateAppModel {
     }
 }
 
-/// Backward compatibility alias
-public typealias TetherAppModel = MacMateAppModel
 
 #if DEBUG
 // MARK: - Mocks for Previews

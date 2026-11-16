@@ -161,8 +161,6 @@ enum MacMateCredits {
     }
 }
 
-/// Backward compatibility alias
-typealias TetherCredits = MacMateCredits
 
 struct AboutSettings: View {
     @Bindable private var updates = UpdateController.shared

@@ -36,6 +36,3 @@ public extension MacMatePlugin {
     func handlePayloadProgress(connection: DeviceConnection, packet: NetworkPacket, fraction: Double) {}
     func handlePayloadFailure(connection: DeviceConnection, packet: NetworkPacket, error: Error) {}
 }
-
-/// Backward compatibility alias for legacy plugin implementations
-public typealias TetherPlugin = MacMatePlugin
