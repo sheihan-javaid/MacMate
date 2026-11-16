@@ -8,6 +8,7 @@ import Combine
 import AppKit
 import UserNotifications
 import UniformTypeIdentifiers
+import CoreServices
 
 public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Sendable {
     public static let shareRequestType = "kdeconnect.share.request"
@@ -107,6 +108,14 @@ public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Send
 
         do {
             try FileManager.default.moveItem(at: payloadURL, to: destinationURL)
+            // Mark it as downloaded so Gatekeeper checks it on first open.
+            var quarantined = destinationURL
+            var values = URLResourceValues()
+            values.quarantineProperties = [
+                kLSQuarantineTypeKey as String: kLSQuarantineTypeOtherDownload,
+                kLSQuarantineAgentNameKey as String: "MacMate"
+            ]
+            try? quarantined.setResourceValues(values)
             let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? NSNumber)?.int64Value ?? 0
             MacMateLog("[SharePlugin] Saved \(size) bytes to \(destinationURL.path)")
 
@@ -325,8 +334,13 @@ public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Send
     }
 
     private func handleReceivedURL(_ url: URL, from deviceName: String) {
-        DispatchQueue.main.async {
-            NSWorkspace.shared.open(url)
+        // A phone can send any URL, including file: paths and other apps'
+        // schemes. Only web and mail links open on their own; the rest are
+        // shown in the notification for the user to act on.
+        if let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) {
+            DispatchQueue.main.async {
+                NSWorkspace.shared.open(url)
+            }
         }
         MacMateLog("[SharePlugin] Received shared URL from \(deviceName)")
 
