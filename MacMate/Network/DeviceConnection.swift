@@ -270,12 +270,14 @@ public final class DeviceConnection: @unchecked Sendable {
             }
         }
 
-        if let packet = try? NetworkPacket.unserialize(from: lineData) {
-            MacMateLog("[DeviceConnection] Received incoming plaintext connection packet from \(packet.string(for: "deviceId") ?? "unknown")")
-            self.targetDeviceId = packet.string(for: "deviceId")
-        } else {
-            MacMateLog("[DeviceConnection] Failed to parse incoming connection packet: \(String(data: lineData, encoding: .utf8) ?? "")")
+        guard let packet = try? NetworkPacket.unserialize(from: lineData) else {
+            // Not a KDE Connect peer (or the read timed out): don't spend a TLS handshake on it.
+            MacMateLog("[DeviceConnection] Dropping \(host): no valid identity line (\(lineData.count) bytes)")
+            disconnect()
+            return
         }
+        MacMateLog("[DeviceConnection] Received incoming plaintext connection packet from \(packet.string(for: "deviceId") ?? "unknown")")
+        self.targetDeviceId = packet.string(for: "deviceId")
 
         // Incoming connection starts SSL in CLIENT mode (KDE Connect v8 protocol inversion)
         self.startTLS(isServer: false)
