@@ -597,7 +597,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
                 ]
             )
             connection.send(packet: replyPacket)
-            MacMateLog("[NotificationPlugin] Sent notification reply to \(deviceId): \(replyText)")
+            MacMateLog("[NotificationPlugin] Sent notification reply to \(deviceId)")
         } else if response.actionIdentifier == Self.dismissAction || response.actionIdentifier == Self.legacyDismissAction {
             if let notifId = userInfo["notifId"] as? String {
                 let dismissPacket = NetworkPacket(

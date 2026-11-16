@@ -313,7 +313,7 @@ public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Send
     private func handleReceivedText(_ text: String, from deviceName: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        MacMateLog("[SharePlugin] Received shared text from \(deviceName): \(text.prefix(50))...")
+        MacMateLog("[SharePlugin] Received shared text from \(deviceName) (\(text.count) characters)")
 
         let content = UNMutableNotificationContent()
         content.title = "Text Received from \(deviceName)"
@@ -328,7 +328,7 @@ public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Send
         DispatchQueue.main.async {
             NSWorkspace.shared.open(url)
         }
-        MacMateLog("[SharePlugin] Received shared URL from \(deviceName): \(url.absoluteString)")
+        MacMateLog("[SharePlugin] Received shared URL from \(deviceName)")
 
         let content = UNMutableNotificationContent()
         content.title = "Link Received from \(deviceName)"

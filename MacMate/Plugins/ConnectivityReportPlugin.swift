@@ -92,7 +92,7 @@ public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, Wi
     }
 
     private func sendSSID(_ ssid: String, to connection: DeviceConnection) {
-        MacMateLog("[ConnectivityReportPlugin] Sending Wi-Fi SSID '\(ssid)' to \(connection.peerDeviceInfo?.deviceName ?? "device")")
+        MacMateLog("[ConnectivityReportPlugin] Sending Wi-Fi SSID to \(connection.peerDeviceInfo?.deviceName ?? "device")")
         let packet = NetworkPacket(type: "kdeconnect.connectivity_report", body: ["ssid": ssid])
         connection.send(packet: packet)
     }
