@@ -66,25 +66,42 @@ public final class DeviceIdentity: @unchecked Sendable {
         var id = defaults.string(forKey: Self.deviceIdKey)
         let name = defaults.string(forKey: Self.deviceNameKey) ?? Host.current().localizedName ?? "Mac"
 
-        if id == nil || !fm.fileExists(atPath: paths.p12.path) {
-            id = Self.generateIdentity(paths: paths)
+        // An identity on disk is always reused, never regenerated: replacing it
+        // changes this Mac's certificate, and every phone would have to pair again.
+        var identity: SecIdentity?
+        if fm.fileExists(atPath: paths.p12.path) {
+            identity = Self.importIdentity(paths: paths)
+            if let found = identity {
+                let certificateId = Self.deviceId(in: found)
+                if id == nil {
+                    // The saved ID is gone (preferences reset or restored without
+                    // it) but the key is intact. The certificate's common name is
+                    // the device ID peers pinned, so take it from there.
+                    id = certificateId
+                    if id != nil { MacMateLog("[DeviceIdentity] Saved device ID missing; recovered it from the certificate") }
+                } else if let certificateId, certificateId != id {
+                    MacMateLog("[DeviceIdentity] Saved device ID differs from the certificate's; keeping the saved one")
+                }
+            }
         }
+
+        if identity == nil || id == nil {
+            // First launch, or the files on disk can't be used (corrupt, lost
+            // passphrase, no recoverable ID). Anything already there is set aside
+            // by renaming, never overwritten or deleted, so it can be restored.
+            // Peers will see a new device and need to pair again.
+            if Self.hasIdentityFiles(paths: paths) {
+                MacMateLog("[DeviceIdentity] Stored identity could not be used; setting it aside and generating a new one")
+                Self.quarantine(paths: paths)
+            }
+            id = Self.generateIdentity(paths: paths)
+            identity = Self.importIdentity(paths: paths)
+        }
+
         if let id {
             defaults.set(id, forKey: Self.deviceIdKey)
         }
         defaults.set(name, forKey: Self.deviceNameKey)
-
-        var identity = Self.importIdentity(paths: paths)
-        if identity == nil {
-            // The identity on disk is unreadable (corrupt file, lost passphrase).
-            // Set it aside and start over rather than crashing on every launch.
-            // Peers will see a new device and need to pair again.
-            MacMateLog("[DeviceIdentity] Stored identity could not be imported; generating a new one")
-            Self.quarantine(paths: paths)
-            id = Self.generateIdentity(paths: paths)
-            if let id { defaults.set(id, forKey: Self.deviceIdKey) }
-            identity = Self.importIdentity(paths: paths)
-        }
 
         guard let identity else {
             fatalError("MacMate could not create a TLS identity. Check that /usr/bin/openssl exists and ~/Library/Application Support/MacMate is writable.")
@@ -233,10 +250,33 @@ public final class DeviceIdentity: @unchecked Sendable {
         }
     }
 
+    private static func hasIdentityFiles(paths: Paths) -> Bool {
+        paths.all.contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// The device ID a certificate was issued for: its common name.
+    static func deviceId(in identity: SecIdentity) -> String? {
+        var certificate: SecCertificate?
+        var commonName: CFString?
+        guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate,
+              SecCertificateCopyCommonName(certificate, &commonName) == errSecSuccess,
+              let value = commonName as String?,
+              value.count >= 8,
+              value.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }) else { return nil }
+        return value
+    }
+
+    /// Sets every identity file aside under a new name. Never overwrites an earlier
+    /// set-aside file, and never deletes anything.
     private static func quarantine(paths: Paths) {
         let stamp = Int(Date().timeIntervalSince1970)
         for url in paths.all where FileManager.default.fileExists(atPath: url.path) {
-            let aside = url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).broken-\(stamp)")
+            var aside = url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).broken-\(stamp)")
+            var attempt = 1
+            while FileManager.default.fileExists(atPath: aside.path) {
+                aside = url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).broken-\(stamp)-\(attempt)")
+                attempt += 1
+            }
             try? FileManager.default.moveItem(at: url, to: aside)
         }
     }
