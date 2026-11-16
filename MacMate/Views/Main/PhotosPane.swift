@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import ImageIO
 import AppKit
 import QuickLook
 
@@ -270,32 +271,17 @@ private struct PhotoThumbnailCell: View {
             }
 
             let loaded = await Task.detached(priority: .utility) { () -> NSImage? in
-                guard !Task.isCancelled else { return nil }
-                guard let image = NSImage(contentsOf: url) else { return nil }
-                // Create scaled thumbnail to minimize memory footprint
-                let targetSize = NSSize(width: 280, height: 220)
-                let rep = NSBitmapImageRep(
-                    bitmapDataPlanes: nil,
-                    pixelsWide: Int(targetSize.width),
-                    pixelsHigh: Int(targetSize.height),
-                    bitsPerSample: 8,
-                    samplesPerPixel: 4,
-                    hasAlpha: true,
-                    isPlanar: false,
-                    colorSpaceName: .deviceRGB,
-                    bytesPerRow: 0,
-                    bitsPerPixel: 0
-                )
-                guard let rep else { return image }
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-                image.draw(in: NSRect(origin: .zero, size: targetSize))
-                NSGraphicsContext.restoreGraphicsState()
-
-                let thumb = NSImage(size: targetSize)
-                thumb.addRepresentation(rep)
-                let cost = Int(targetSize.width * targetSize.height * 4)
-                ThumbnailCache.shared.setImage(thumb, for: url.path, cost: cost)
+                // ImageIO decodes straight to thumbnail size; NSImage would decode
+                // the whole photo (often 12 MP, sometimes over the phone mount) first.
+                guard !Task.isCancelled,
+                      let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 560,
+                        kCGImageSourceCreateThumbnailWithTransform: true
+                      ] as CFDictionary) else { return nil }
+                let thumb = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width / 2, height: cgImage.height / 2))
+                ThumbnailCache.shared.setImage(thumb, for: url.path, cost: cgImage.width * cgImage.height * 4)
                 return thumb
             }.value
 
