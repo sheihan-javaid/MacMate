@@ -116,15 +116,20 @@ public nonisolated enum TailscaleDiscovery {
         }
 
         // Read concurrently so a large status can't fill the pipe and stall the CLI.
-        var data = Data()
-        let reader = DispatchQueue(label: "com.subhashh.macmate.tailscale.read")
-        reader.async { data = output.fileHandleForReading.readDataToEndOfFile() }
+        nonisolated(unsafe) var data = Data()
+        let readerDone = DispatchSemaphore(value: 0)
+        DispatchQueue(label: "com.subhashh.macmate.tailscale.read").async {
+            data = output.fileHandleForReading.readDataToEndOfFile()
+            readerDone.signal()
+        }
 
         if finished.wait(timeout: .now() + timeout) == .timedOut {
+            // The reader may still be running; don't touch `data`.
             process.terminate()
             return nil
         }
-        reader.sync {}
+        // Reading `data` is safe only after the reader has signalled.
+        guard readerDone.wait(timeout: .now() + 2) == .success else { return nil }
         return process.terminationStatus == 0 ? data : nil
     }
 }
