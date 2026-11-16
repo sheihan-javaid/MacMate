@@ -7,7 +7,7 @@
 //  and last-changed time, then fetch only the vCards that are new or changed.
 //  The phone asks the user for contacts permission the first time.
 //
-//  Copies live in ~/Library/Application Support/Tether/Contacts/<device>,
+//  Copies live in ~/Library/Application Support/MacMate/Contacts/<device>,
 //  readable only by this user, and are deleted when the device is unpaired.
 //
 
@@ -150,16 +150,7 @@ public final class ContactsPlugin: ObservableObject, MacMatePlugin, @unchecked S
 
     // MARK: - Files
 
-    private static var root: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let legacy = appSupport.appendingPathComponent("Tether/Contacts", isDirectory: true)
-        let primary = appSupport.appendingPathComponent("MacMate/Contacts", isDirectory: true)
-        if FileManager.default.fileExists(atPath: legacy.path) && !FileManager.default.fileExists(atPath: primary.path) {
-            try? FileManager.default.createDirectory(at: primary.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? FileManager.default.copyItem(at: legacy, to: primary)
-        }
-        return primary
-    }
+    private static var root: URL { AppIdentity.contactsDirectory() }
 
     private static func directory(for deviceId: String) -> URL {
         root.appendingPathComponent(deviceId.filter { $0.isLetter || $0.isNumber || $0 == "_" }, isDirectory: true)

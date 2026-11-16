@@ -15,14 +15,11 @@ final class ShareInbox {
     static let shared = ShareInbox()
 
     private static let pasteboardName = NSPasteboard.Name("com.subhashh.MacMate.share")
-    private static let legacyPasteboardName = NSPasteboard.Name("com.subhashh.Tether.share")
 
     /// Connected devices, published for the extension's "Send to" chooser.
     private static let devicesPasteboardName = NSPasteboard.Name("com.subhashh.MacMate.devices")
-    private static let legacyDevicesPasteboardName = NSPasteboard.Name("com.subhashh.Tether.devices")
 
     private static let notificationName = Notification.Name("com.subhashh.MacMate.shareRequest")
-    private static let legacyNotificationName = Notification.Name("com.subhashh.Tether.shareRequest")
 
     /// Items older than this are ignored, so a stale hand-off is never replayed.
     private static let maximumAge: TimeInterval = 120
@@ -37,14 +34,6 @@ final class ShareInbox {
         static let device = NSPasteboard.PasteboardType("com.subhashh.macmate.device")
         static let devices = NSPasteboard.PasteboardType("com.subhashh.macmate.devices")
 
-        static let legacyKind = NSPasteboard.PasteboardType("com.subhashh.tether.kind")
-        static let legacyCreated = NSPasteboard.PasteboardType("com.subhashh.tether.created")
-        static let legacyPath = NSPasteboard.PasteboardType("com.subhashh.tether.path")
-        static let legacyData = NSPasteboard.PasteboardType("com.subhashh.tether.data")
-        static let legacyName = NSPasteboard.PasteboardType("com.subhashh.tether.name")
-        static let legacyValue = NSPasteboard.PasteboardType("com.subhashh.tether.value")
-        static let legacyDevice = NSPasteboard.PasteboardType("com.subhashh.tether.device")
-        static let legacyDevices = NSPasteboard.PasteboardType("com.subhashh.tether.devices")
     }
 
     private var observers: [NSObjectProtocol] = []
@@ -61,16 +50,11 @@ final class ShareInbox {
         let pasteboard = NSPasteboard(name: Self.devicesPasteboardName)
         pasteboard.clearContents()
         pasteboard.setData(json, forType: Key.devices)
-
-        let legacyPasteboard = NSPasteboard(name: Self.legacyDevicesPasteboardName)
-        legacyPasteboard.clearContents()
-        legacyPasteboard.setData(json, forType: Key.legacyDevices)
     }
 
     /// Shared data (e.g. photos) is written here before sending.
     private var outgoingDirectory: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacMateOutgoing", isDirectory: true)
+        AppIdentity.cacheFolder(.outgoing)
     }
 
     func start() {
@@ -83,7 +67,6 @@ final class ShareInbox {
         }
 
         observers.append(center.addObserver(forName: Self.notificationName, object: nil, queue: .main, using: handler))
-        observers.append(center.addObserver(forName: Self.legacyNotificationName, object: nil, queue: .main, using: handler))
 
         // The extension launches MacMate when it isn't running; pick up what it left.
         // Give discovery a moment so a known phone has reconnected first.
@@ -94,19 +77,8 @@ final class ShareInbox {
     }
 
     private func drain() {
-        let primaryPasteboard = NSPasteboard(name: Self.pasteboardName)
-        let primaryItems = primaryPasteboard.pasteboardItems ?? []
-
-        let items: [NSPasteboardItem]
-        let activePasteboard: NSPasteboard
-        if !primaryItems.isEmpty {
-            items = primaryItems
-            activePasteboard = primaryPasteboard
-        } else {
-            let legacyPasteboard = NSPasteboard(name: Self.legacyPasteboardName)
-            items = legacyPasteboard.pasteboardItems ?? []
-            activePasteboard = legacyPasteboard
-        }
+        let activePasteboard = NSPasteboard(name: Self.pasteboardName)
+        let items = activePasteboard.pasteboardItems ?? []
 
         guard !items.isEmpty else { return }
         // Items are read lazily from the pasteboard server, so copy every value
@@ -134,15 +106,15 @@ final class ShareInbox {
                 }
                 return nil
             }
-            guard let createdStr = string([Key.created, Key.legacyCreated]),
+            guard let createdStr = string([Key.created]),
                   let created = Double(createdStr),
                   now - created < Self.maximumAge,
-                  let kind = string([Key.kind, Key.legacyKind]) else { continue }
-            chosenDeviceId = chosenDeviceId ?? string([Key.device, Key.legacyDevice])
+                  let kind = string([Key.kind]) else { continue }
+            chosenDeviceId = chosenDeviceId ?? string([Key.device])
 
             switch kind {
             case "file":
-                guard let path = string([Key.path, Key.legacyPath]) else { continue }
+                guard let path = string([Key.path]) else { continue }
                 var isDirectory: ObjCBool = false
                 guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { continue }
                 if isDirectory.boolValue {
@@ -151,19 +123,19 @@ final class ShareInbox {
                     files.append(URL(fileURLWithPath: path))
                 }
             case "data":
-                let data = item[Key.data] ?? item[Key.legacyData]
-                let name = string([Key.name, Key.legacyName]) ?? "Shared"
+                let data = item[Key.data]
+                let name = string([Key.name]) ?? "Shared"
                 if let data, let url = writeOutgoing(data, name: name) {
                     files.append(url)
                 }
             case "url":
-                if let urlString = string([Key.value, Key.legacyValue]),
+                if let urlString = string([Key.value]),
                    let url = URL(string: urlString),
                    ["http", "https"].contains(url.scheme?.lowercased()) {
                     links.append(url)
                 }
             case "text":
-                if let text = string([Key.value, Key.legacyValue]), !text.isEmpty {
+                if let text = string([Key.value]), !text.isEmpty {
                     texts.append(text)
                 }
             default:
@@ -231,10 +203,6 @@ final class ShareInbox {
     /// Staged copies are only needed until they're sent; clear out old ones.
     private func removeOldOutgoingFiles() {
         let cutoff = Date().addingTimeInterval(-24 * 3600)
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let legacyDir = caches.appendingPathComponent("TetherOutgoing", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyDir)
-
         let contents = (try? FileManager.default.contentsOfDirectory(
             at: outgoingDirectory, includingPropertiesForKeys: [.contentModificationDateKey]
         )) ?? []

@@ -1,6 +1,6 @@
 //
 //  ContactBook.swift
-//  Tether
+//  MacMate
 //
 //  The phone's contacts, as vCards from KDE Connect's contacts plugin, for
 //  showing names and photos instead of bare numbers.
@@ -75,7 +75,7 @@ nonisolated struct ContactBook: Sendable, Equatable {
 // MARK: - vCard
 
 nonisolated enum VCard {
-    /// Reads the parts Tether shows. Android writes vCard 2.1 or 3.0, folding
+    /// Reads the parts MacMate shows. Android writes vCard 2.1 or 3.0, folding
     /// long lines (a photo is thousands of characters) onto lines that start
     /// with a space.
     static func parse(_ text: String) -> Contact? {

@@ -15,9 +15,7 @@ import UserNotifications
 public final class TelephonyPlugin: MacMatePlugin, @unchecked Sendable {
     static let requestMuteType = "kdeconnect.telephony.request_mute"
     static let callCategory = "MACMATE_CALL_CATEGORY"
-    static let legacyCallCategory = "TETHER_CALL_CATEGORY"
     static let muteAction = "MACMATE_MUTE_RINGER_ACTION"
-    static let legacyMuteAction = "TETHER_MUTE_RINGER_ACTION"
 
     public let supportedPacketTypes = ["kdeconnect.telephony"]
 

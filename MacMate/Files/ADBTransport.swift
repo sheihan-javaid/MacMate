@@ -211,8 +211,6 @@ actor ADBTransport: PhoneFileTransport {
 
     private static var cacheDirectory: URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("MacMateADBReads", isDirectory: true)
-        let legacyDir = FileManager.default.temporaryDirectory.appendingPathComponent("TetherADBReads", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyDir)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }

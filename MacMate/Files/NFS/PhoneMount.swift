@@ -35,16 +35,7 @@ final class PhoneMount {
     private var hostName: LocalHostName?
 
     /// Where phones are mounted. Kept out of the way; Finder lists the drives by name.
-    nonisolated static var mountsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacMate/Mounts", isDirectory: true)
-    }
-
-    /// Legacy directory used before migration.
-    nonisolated static var legacyMountsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Tether/Mounts", isDirectory: true)
-    }
+    nonisolated static var mountsDirectory: URL { AppIdentity.mountsDirectory() }
 
     init(deviceId: String, name: String, router: PhoneFilesRouter) {
         self.deviceId = deviceId
@@ -269,20 +260,19 @@ final class PhoneMount {
         return host == "localhost" || host == "127.0.0.1" || host.hasSuffix(".local")
     }
 
-    /// Validates that a path is strictly an immediate child directory within the MacMate or legacy Tether mounts directory,
+    /// Validates that a path is strictly an immediate child directory within the MacMate mounts directory,
     /// has no directory traversal or symlink escape, and is owned by the current user.
     nonisolated static func isSafeMountDirectoryChild(_ url: URL) -> Bool {
         let canonicalCandidate = url.resolvingSymlinksInPath().standardized.path
         let canonicalMounts = mountsDirectory.resolvingSymlinksInPath().standardized.path
-        let canonicalLegacy = legacyMountsDirectory.resolvingSymlinksInPath().standardized.path
 
         // Must not be the mounts root directory itself
-        guard canonicalCandidate != canonicalMounts && canonicalCandidate != canonicalLegacy else {
+        guard canonicalCandidate != canonicalMounts else {
             return false
         }
 
         let parent = URL(fileURLWithPath: canonicalCandidate).deletingLastPathComponent().resolvingSymlinksInPath().standardized.path
-        guard parent == canonicalMounts || parent == canonicalLegacy else {
+        guard parent == canonicalMounts else {
             return false
         }
 
@@ -295,8 +285,8 @@ final class PhoneMount {
         return true
     }
 
-    /// Unmounts phones left mounted by a previous run that didn't quit cleanly,
-    /// and safely migrates legacy mounts from Tether/Mounts to MacMate/Mounts.
+    /// Unmounts phones left mounted by a previous run that didn't quit cleanly.
+    /// Only looks inside MacMate's own mounts folder.
     /// Strictly ownership-aware, politely unmounts and uses MNT_FORCE fallback for busy mounts.
     static func cleanUpStaleMounts() {
         let lockResult: Void? = MountLock.withLock {
@@ -308,14 +298,9 @@ final class PhoneMount {
     }
 
     private static func performCleanUpStaleMounts() {
-        // 1. Check for other running instances of MacMate or legacy Tether across all candidate bundle IDs
+        // 1. Check for other running instances of MacMate
         let currentPID = ProcessInfo.processInfo.processIdentifier
-        let candidateBundleIDs = [
-            Bundle.main.bundleIdentifier,
-            "com.subhashh.MacMate",
-            "com.subhashh.Tether"
-        ].compactMap { $0 }
-        let uniqueBundleIDs = Set(candidateBundleIDs)
+        let uniqueBundleIDs = Set([Bundle.main.bundleIdentifier, AppIdentity.bundleIdentifier].compactMap { $0 })
 
         let runningOthers = uniqueBundleIDs.flatMap { bundleId in
             NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
@@ -336,13 +321,11 @@ final class PhoneMount {
         let activeMountPaths = PhoneFilesController.shared.activeMountPointPaths()
 
         let canonicalMounts = mountsDirectory.resolvingSymlinksInPath().standardized.path
-        let canonicalLegacy = legacyMountsDirectory.resolvingSymlinksInPath().standardized.path
-        let directoriesToCheck = [canonicalMounts, canonicalLegacy]
 
         let mounts = mountedFileSystems()
 
-        for dirPath in directoriesToCheck {
-            let isLegacyDirectory = (dirPath == canonicalLegacy)
+        do {
+            let dirPath = canonicalMounts
 
             // Find mounted filesystems strictly matching our criteria:
             // - File system type must be NFS
@@ -371,10 +354,6 @@ final class PhoneMount {
                 guard isMatchingMountSource(mountInfo.mountFromName, expectedShareName: expectedShare) else {
                     MacMateLog("[Files] Preserving ambiguous mount at \(mountInfo.path) (source: '\(mountInfo.mountFromName)') — provenance not established")
                     continue
-                }
-
-                if isLegacyDirectory {
-                    MacMateLog("[Files] Verified provenance of legacy leftover mount at \(mountInfo.path) (source: \(mountInfo.mountFromName)); attempting polite cleanup")
                 }
 
                 // Attempt polite normal unmount only. If it fails, preserve the mount.
@@ -488,8 +467,7 @@ final class LocalHostName {
 /// Does NOT affect Finder or external system processes.
 final class MountLock: @unchecked Sendable {
     private static var lockURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacMate/.mount_coordination.lock")
+        AppIdentity.applicationSupportDirectory().appendingPathComponent(".mount_coordination.lock")
     }
 
     /// Executes operation while holding an exclusive non-blocking lock.

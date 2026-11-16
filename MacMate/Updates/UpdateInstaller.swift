@@ -62,12 +62,9 @@ nonisolated struct UpdateInstaller: Sendable {
     let stagingDirectory: URL
 
     static var standard: UpdateInstaller {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let legacyDir = caches.appendingPathComponent("TetherUpdate", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyDir)
-        return UpdateInstaller(
+        UpdateInstaller(
             bundleURL: Bundle.main.bundleURL,
-            stagingDirectory: caches.appendingPathComponent("MacMateUpdate", isDirectory: true)
+            stagingDirectory: AppIdentity.cacheFolder(.update)
         )
     }
 
@@ -112,7 +109,7 @@ nonisolated struct UpdateInstaller: Sendable {
         onProgress: @escaping @Sendable (Phase) -> Void
     ) async throws -> String {
         var request = URLRequest(url: release.archiveURL, timeoutInterval: 30)
-        request.setValue("Tether/\(AppVersion.current?.description ?? "0")", forHTTPHeaderField: "User-Agent")
+        request.setValue("MacMate/\(AppVersion.current?.description ?? "0")", forHTTPHeaderField: "User-Agent")
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
@@ -191,7 +188,7 @@ nonisolated struct UpdateInstaller: Sendable {
     }
 
     private func verify(_ staged: URL, is release: AvailableRelease) throws {
-        // A file Tether downloads itself isn't quarantined, but check rather than assume.
+        // A file MacMate downloads itself isn't quarantined, but check rather than assume.
         Quarantine.clear(from: staged)
         guard !Quarantine.isSet(on: staged) else { throw UpdateFailure.quarantined }
 
@@ -202,7 +199,7 @@ nonisolated struct UpdateInstaller: Sendable {
             throw UpdateFailure.wrongApp
         }
         let stagedId = info["CFBundleIdentifier"] as? String
-        let validIds = [Bundle.main.bundleIdentifier, "com.subhashh.MacMate", "com.subhashh.Tether"].compactMap { $0 }
+        let validIds = [Bundle.main.bundleIdentifier, AppIdentity.bundleIdentifier].compactMap { $0 }
         guard let stagedId, validIds.contains(stagedId) else {
             throw UpdateFailure.wrongApp
         }
@@ -240,7 +237,7 @@ nonisolated enum Quarantine {
 }
 
 nonisolated enum Relauncher {
-    /// Reopens Tether once this process has exited. `open` on a bundle that is
+    /// Reopens MacMate once this process has exited. `open` on a bundle that is
     /// still running would only bring the old instance forward.
     static func relaunchAfterExit(_ bundleURL: URL) {
         let process = Process()

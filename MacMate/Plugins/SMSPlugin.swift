@@ -47,10 +47,7 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
         // as-is below but must never be used as a path without sanitising.
         let filename = packet.string(for: "filename") ?? "attachment"
         let deviceId = connection.peerDeviceInfo?.deviceId
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let attachmentDir = cachesDir.appendingPathComponent("MacMateAttachments", isDirectory: true)
-        let legacyDir = cachesDir.appendingPathComponent("TetherAttachments", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyDir)
+        let attachmentDir = AppIdentity.cacheFolder(.attachments)
 
         try? FileManager.default.createDirectory(at: attachmentDir, withIntermediateDirectories: true)
         let fileURL = attachmentDir.appendingPathComponent(SafeFilename.sanitize(filename, fallback: "attachment"))

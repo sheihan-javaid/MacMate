@@ -119,19 +119,10 @@ actor PhoneNFSServer {
         fsid = Self.stableHash(deviceId)
         stagingDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MacMateNFS-\(deviceId)", isDirectory: true)
-        let legacyStaging = FileManager.default.temporaryDirectory
-            .appendingPathComponent("TetherNFS-\(deviceId)", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyStaging)
         try? FileManager.default.removeItem(at: stagingDirectory)
         try? FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
-        let baseMetadata = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let legacyMeta = baseMetadata.appendingPathComponent("Tether/Finder Metadata/\(deviceId)", isDirectory: true)
-        let primaryMeta = baseMetadata.appendingPathComponent("MacMate/Finder Metadata/\(deviceId)", isDirectory: true)
-        if FileManager.default.fileExists(atPath: legacyMeta.path) && !FileManager.default.fileExists(atPath: primaryMeta.path) {
-            try? FileManager.default.createDirectory(at: primaryMeta.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? FileManager.default.copyItem(at: legacyMeta, to: primaryMeta)
-        }
-        metadataDirectory = primaryMeta
+        metadataDirectory = AppIdentity.finderMetadataDirectory()
+            .appendingPathComponent(deviceId, isDirectory: true)
 
         let owner = WeakServer()
         rpc = RPCServer { call in

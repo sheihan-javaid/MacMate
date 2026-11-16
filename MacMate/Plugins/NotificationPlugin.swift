@@ -45,22 +45,14 @@ public struct PhoneNotification: Identifiable, Hashable, Sendable {
 
 public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let notificationCategory = "MACMATE_NOTIFICATION_CATEGORY"
-    static let legacyNotificationCategory = "TETHER_NOTIFICATION_CATEGORY"
     static let codeCategory = "MACMATE_CODE_CATEGORY"
-    static let legacyCodeCategory = "TETHER_CODE_CATEGORY"
     static let pairCategory = "MACMATE_PAIR_REQUEST_CATEGORY"
-    static let legacyPairCategory = "TETHER_PAIR_REQUEST_CATEGORY"
 
     static let replyAction = "MACMATE_REPLY_ACTION"
-    static let legacyReplyAction = "TETHER_REPLY_ACTION"
     static let dismissAction = "MACMATE_DISMISS_ACTION"
-    static let legacyDismissAction = "TETHER_DISMISS_ACTION"
     static let pairAcceptAction = "MACMATE_PAIR_ACCEPT_ACTION"
-    static let legacyPairAcceptAction = "TETHER_PAIR_ACCEPT_ACTION"
     static let pairRejectAction = "MACMATE_PAIR_REJECT_ACTION"
-    static let legacyPairRejectAction = "TETHER_PAIR_REJECT_ACTION"
     static let copyCodeAction = "MACMATE_COPY_CODE_ACTION"
-    static let legacyCopyCodeAction = "TETHER_COPY_CODE_ACTION"
     /// Active phone notifications per device, newest first.
     @Published public private(set) var notifications: [String: [PhoneNotification]] = [:]
 
@@ -158,18 +150,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
             options: []
         )
 
-                let legacyReply = UNTextInputNotificationAction(identifier: Self.legacyReplyAction, title: "Reply", options: [], textInputButtonTitle: "Send", textInputPlaceholder: "Type a reply...")
-        let legacyDismiss = UNNotificationAction(identifier: Self.legacyDismissAction, title: "Dismiss on Phone", options: [.destructive])
-        let legacyCat = UNNotificationCategory(identifier: Self.legacyNotificationCategory, actions: [legacyReply, legacyDismiss], intentIdentifiers: [], options: [])
-        let legacyAccept = UNNotificationAction(identifier: Self.legacyPairAcceptAction, title: "Accept", options: [.foreground])
-        let legacyReject = UNNotificationAction(identifier: Self.legacyPairRejectAction, title: "Reject", options: [.destructive])
-        let legacyPairCat = UNNotificationCategory(identifier: Self.legacyPairCategory, actions: [legacyAccept, legacyReject], intentIdentifiers: [], options: [])
-        let legacyCopy = UNNotificationAction(identifier: Self.legacyCopyCodeAction, title: "Copy Code", options: [])
-        let legacyCodeCat = UNNotificationCategory(identifier: Self.legacyCodeCategory, actions: [legacyCopy, legacyReply, legacyDismiss], intentIdentifiers: [], options: [])
-        let legacyMute = UNNotificationAction(identifier: TelephonyPlugin.legacyMuteAction, title: "Mute Ringer", options: [])
-        let legacyCallCat = UNNotificationCategory(identifier: TelephonyPlugin.legacyCallCategory, actions: [legacyMute], intentIdentifiers: [], options: [])
-
-        UNUserNotificationCenter.current().setNotificationCategories([category, codeCategory, pairCategory, callCategory, legacyCat, legacyPairCat, legacyCodeCat, legacyCallCat])
+        UNUserNotificationCenter.current().setNotificationCategories([category, codeCategory, pairCategory, callCategory])
     }
 
     public func onConnected(connection: DeviceConnection) {
@@ -531,7 +512,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
             return
         }
 
-        if response.actionIdentifier == Self.pairAcceptAction || response.actionIdentifier == Self.legacyPairAcceptAction {
+        if response.actionIdentifier == Self.pairAcceptAction {
             let info = response.notification.request.content.userInfo
             let deviceId = info["deviceId"] as? String ?? ""
             let fingerprint = info["fingerprint"] as? String
@@ -540,7 +521,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
             }
             completionHandler()
             return
-        } else if response.actionIdentifier == Self.pairRejectAction || response.actionIdentifier == Self.legacyPairRejectAction {
+        } else if response.actionIdentifier == Self.pairRejectAction {
             DispatchQueue.main.async {
                 MacMateService.shared.rejectIncomingPairRequest()
             }
@@ -549,7 +530,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         }
 
         let userInfo = response.notification.request.content.userInfo
-        if response.actionIdentifier == TelephonyPlugin.muteAction || response.actionIdentifier == TelephonyPlugin.legacyMuteAction {
+        if response.actionIdentifier == TelephonyPlugin.muteAction {
             if let deviceId = userInfo["deviceId"] as? String {
                 TelephonyPlugin.muteRinger(deviceId: deviceId)
             }
@@ -558,7 +539,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         }
 
         // Copying needs no connection: the code is in the notification.
-        if response.actionIdentifier == Self.copyCodeAction || response.actionIdentifier == Self.legacyCopyCodeAction {
+        if response.actionIdentifier == Self.copyCodeAction {
             if let code = userInfo["code"] as? String, !code.isEmpty {
                 Self.copyToPasteboard(code)
             }
@@ -608,7 +589,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
             )
             connection.send(packet: replyPacket)
             MacMateLog("[NotificationPlugin] Sent notification reply to \(deviceId)")
-        } else if response.actionIdentifier == Self.dismissAction || response.actionIdentifier == Self.legacyDismissAction {
+        } else if response.actionIdentifier == Self.dismissAction {
             if let notifId = userInfo["notifId"] as? String {
                 let dismissPacket = NetworkPacket(
                     type: "kdeconnect.notification.request",

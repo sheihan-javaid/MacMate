@@ -1,6 +1,6 @@
 //
 //  ReleaseFeed.swift
-//  Tether
+//  MacMate
 //
 //  Finds the newest release. It reads updates/latest.json from the repository
 //  through raw.githubusercontent.com first: GitHub's API allows only 60
@@ -27,18 +27,16 @@ nonisolated struct AvailableRelease: Sendable, Equatable {
 
 nonisolated enum ReleaseFeed {
     static let repository = "sheihan-javaid/MacMate"
-    static let legacyRepository = "subhashhhhhh/Tether"
     static let releasesPage = URL(string: "https://github.com/\(repository)/releases/latest")!
 
     /// Release notes end the in-app changelog at this marker; what follows is for
     /// people downloading by hand.
     static let installMarker = "<!-- macmate:install -->"
-    static let legacyInstallMarker = "<!-- tether:install -->"
 
-    /// `MACMATE_UPDATE_FEED` or `TETHER_UPDATE_FEED` points the updater at a test feed. Whatever it serves
+    /// `MACMATE_UPDATE_FEED` points the updater at a test feed. Whatever it serves
     /// still has to pass the signature check before it is installed.
     private static var latestURL: URL {
-        if let override = ProcessInfo.processInfo.environment["MACMATE_UPDATE_FEED"] ?? ProcessInfo.processInfo.environment["TETHER_UPDATE_FEED"],
+        if let override = ProcessInfo.processInfo.environment["MACMATE_UPDATE_FEED"],
            let url = URL(string: override) {
             return url
         }
@@ -73,7 +71,7 @@ nonisolated enum ReleaseFeed {
     /// The latest release, or nil when it has no zip for this Mac (such a
     /// release can only be installed by hand).
     static func latest() async throws -> AvailableRelease? {
-        if ProcessInfo.processInfo.environment["MACMATE_UPDATE_FEED"] == nil && ProcessInfo.processInfo.environment["TETHER_UPDATE_FEED"] == nil {
+        if ProcessInfo.processInfo.environment["MACMATE_UPDATE_FEED"] == nil {
             do {
                 let manifest = try JSONDecoder().decode(UpdateManifest.self, from: try await fetch(manifestURL))
                 return available(from: manifest)
@@ -123,8 +121,7 @@ nonisolated enum ReleaseFeed {
               let version = AppVersion(release.tag_name) else { return nil }
 
         let archiveName = "MacMate-\(version.description)-\(architectureLabel).zip"
-        let legacyArchiveName = "Tether-\(version.description)-\(architectureLabel).zip"
-        guard let asset = release.assets.first(where: { $0.name == archiveName || $0.name == legacyArchiveName }) else { return nil }
+        guard let asset = release.assets.first(where: { $0.name == archiveName }) else { return nil }
 
         var sha256: String?
         if let digest = asset.digest, digest.hasPrefix("sha256:") {
@@ -148,8 +145,6 @@ nonisolated enum ReleaseFeed {
     static func changelog(from body: String) -> String {
         var text = body
         if let marker = text.range(of: installMarker) {
-            text = String(text[..<marker.lowerBound])
-        } else if let marker = text.range(of: legacyInstallMarker) {
             text = String(text[..<marker.lowerBound])
         } else if let rule = text.range(of: "\n---\n") {
             text = String(text[..<rule.lowerBound])

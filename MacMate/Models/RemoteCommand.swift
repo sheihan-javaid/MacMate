@@ -1,6 +1,6 @@
 //
 //  RemoteCommand.swift
-//  Tether
+//  MacMate
 //
 //  Data model representing a user-defined shell command executable from the phone.
 //
@@ -22,7 +22,7 @@ public struct RemoteCommand: Identifiable, Codable, Equatable, Sendable {
         RemoteCommand(
             id: "cmd_say_hello",
             name: "Say Hello",
-            command: "osascript -e 'display notification \"Hello from Tether!\" with title \"Tether\"'"
+            command: "osascript -e 'display notification \"Hello from MacMate!\" with title \"MacMate\"'"
         ),
         RemoteCommand(
             id: "cmd_sleep_display",
