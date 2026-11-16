@@ -193,7 +193,7 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
             if activeConnections[deviceId] === connection {
                 activeConnections.removeValue(forKey: deviceId)
                 imageTracker.removeDevice(deviceId)
-                images.removeAll()
+                images.removeDevice(deviceId)
                 // The phone re-sends everything it is still showing on reconnect.
                 notifications[deviceId] = nil
             }

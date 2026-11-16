@@ -8,6 +8,9 @@ import UserNotifications
 final class NotificationImages {
     nonisolated static let maximumPayloadSize: Int64 = 1_048_576
     private let cache = NSCache<NSString, NSData>()
+    /// NSCache can't be enumerated, so remember each device's keys to drop
+    /// only that device's artwork when it disconnects.
+    private var keysByDevice: [String: Set<NSString>] = [:]
 
     init() {
         cache.countLimit = 128
@@ -38,12 +41,24 @@ final class NotificationImages {
         guard CGImageDestinationFinalize(destination) else { return nil }
         let png = output as Data
         if let hash, !hash.isEmpty {
-            cache.setObject(png as NSData, forKey: key(deviceId: deviceId, hash: hash), cost: png.count)
+            let cacheKey = key(deviceId: deviceId, hash: hash)
+            cache.setObject(png as NSData, forKey: cacheKey, cost: png.count)
+            keysByDevice[deviceId, default: []].insert(cacheKey)
         }
         return png
     }
 
-    func removeAll() { cache.removeAllObjects() }
+    func removeAll() {
+        cache.removeAllObjects()
+        keysByDevice.removeAll()
+    }
+
+    /// Drops one device's artwork, leaving other phones' cached images alone.
+    func removeDevice(_ deviceId: String) {
+        for key in keysByDevice.removeValue(forKey: deviceId) ?? [] {
+            cache.removeObject(forKey: key)
+        }
+    }
 
     /// Android's status-bar icon: one flat colour on transparency. The phone
     /// sends it when a notification has no picture of its own (Tailscale,
