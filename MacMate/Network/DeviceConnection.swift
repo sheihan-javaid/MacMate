@@ -108,6 +108,7 @@ public final class DeviceConnection: @unchecked Sendable {
     /// beyond this is a broken or hostile peer, and the stream cannot be resynced.
     private static let maxPacketBytes = 32 * 1024 * 1024
     private static let handshakeTimeout: TimeInterval = 10
+    private static let connectTimeout: TimeInterval = 5
     private static let writeTimeout: TimeInterval = 15
 
     public let host: String
@@ -203,9 +204,29 @@ public final class DeviceConnection: @unchecked Sendable {
             return
         }
 
-        let connectResult = withUnsafePointer(to: &addr) {
+        // Non-blocking connect with an explicit deadline: SO_SNDTIMEO does not
+        // bound connect() on Darwin, and an unreachable address would stall
+        // this queue (and the reverse-connect fallback) for about 75 seconds.
+        let flags = fcntl(fd, F_GETFL, 0)
+        _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+
+        var connectResult = withUnsafePointer(to: &addr) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        if connectResult != 0, errno == EINPROGRESS {
+            if SocketTLS.wait(fd: fd, for: POLLOUT, until: Date().addingTimeInterval(Self.connectTimeout)) {
+                var socketError: Int32 = 0
+                var errorLength = socklen_t(MemoryLayout<Int32>.size)
+                getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &errorLength)
+                if socketError == 0 {
+                    connectResult = 0
+                } else {
+                    errno = socketError
+                }
+            } else {
+                errno = ETIMEDOUT
             }
         }
 
@@ -215,6 +236,8 @@ public final class DeviceConnection: @unchecked Sendable {
             self.notifyDisconnect(error: nil)
             return
         }
+        // The plaintext identity write below is blocking (with SO_SNDTIMEO).
+        _ = fcntl(fd, F_SETFL, flags)
 
         self.socketFD = fd
         MacMateLog("[DeviceConnection] TCP connection established to \(host):\(port)")
@@ -420,7 +443,7 @@ public final class DeviceConnection: @unchecked Sendable {
 
                 if self.pendingPairingRequest && self.pairState != .paired {
                     self.pendingPairingRequest = false
-                    self.requestPairing()
+                    self.requestPairingOnQueue()
                 }
                 return
             }
@@ -572,7 +595,14 @@ public final class DeviceConnection: @unchecked Sendable {
         pairingTimeoutWork = nil
     }
 
-    public func requestPairing() {
+    /// Pairing state is owned by `connectionQueue` (packets change it there), so
+    /// the public entry points hop onto it instead of racing from the main thread.
+    public func requestPairing() { connectionQueue.async { [self] in requestPairingOnQueue() } }
+    public func acceptPairing() { connectionQueue.async { [self] in acceptPairingOnQueue() } }
+    public func rejectPairing() { connectionQueue.async { [self] in rejectPairingOnQueue() } }
+    public func unpair() { connectionQueue.async { [self] in unpairOnQueue() } }
+
+    private func requestPairingOnQueue() {
         guard isEncrypted else {
             MacMateLog("[DeviceConnection] TLS not ready yet, queuing pairing request")
             pendingPairingRequest = true
@@ -581,7 +611,7 @@ public final class DeviceConnection: @unchecked Sendable {
         MacMateLog("[DeviceConnection] Sending pair request to \(peerDeviceInfo?.deviceName ?? "peer")")
         if pairState == .requestedByPeer {
             // They asked first: answering is accepting.
-            acceptPairing()
+            acceptPairingOnQueue()
             return
         }
         guard pairState == .notPaired else { return }
@@ -599,7 +629,7 @@ public final class DeviceConnection: @unchecked Sendable {
         delegate?.deviceConnection(self, didUpdatePairState: .requested)
     }
 
-    public func acceptPairing() {
+    private func acceptPairingOnQueue() {
         guard pairState == .requestedByPeer else {
             MacMateLog("[DeviceConnection] No pairing request to accept from \(peerDeviceInfo?.deviceName ?? "peer"); it may have timed out")
             return
@@ -611,7 +641,7 @@ public final class DeviceConnection: @unchecked Sendable {
         completePairing()
     }
 
-    public func rejectPairing() {
+    private func rejectPairingOnQueue() {
         MacMateLog("[DeviceConnection] Rejecting pairing request from \(peerDeviceInfo?.deviceName ?? "peer")")
         cancelPairingTimeout()
         let packet = NetworkPacket(type: "kdeconnect.pair", body: ["pair": false])
@@ -623,7 +653,7 @@ public final class DeviceConnection: @unchecked Sendable {
         }
     }
 
-    public func unpair() {
+    private func unpairOnQueue() {
         guard let info = peerDeviceInfo else { return }
         MacMateLog("[DeviceConnection] Unpairing from \(info.deviceName)")
         let packet = NetworkPacket(type: "kdeconnect.pair", body: ["pair": false])
@@ -644,7 +674,7 @@ public final class DeviceConnection: @unchecked Sendable {
 
         guard let fingerprint = peerCertificateFingerprint, !fingerprint.isEmpty else {
             MacMateLog("[DeviceConnection] Cannot complete pairing: no peer certificate to pin")
-            rejectPairing()
+            rejectPairingOnQueue()
             return
         }
         self.pairState = .paired
