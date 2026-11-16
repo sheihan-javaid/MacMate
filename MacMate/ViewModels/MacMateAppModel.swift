@@ -266,9 +266,7 @@ public final class MacMateAppModel {
         }
         vm.onLoadEarlierMessages = { threadId in
             guard let conn = service.connectedDevices[deviceId] else { return }
-            DispatchQueue.global(qos: .userInitiated).async {
-                service.smsPlugin.requestEarlierMessages(threadId: threadId, connection: conn)
-            }
+            service.smsPlugin.requestEarlierMessages(threadId: threadId, connection: conn)
         }
         vm.onSetVolume = { val in service.setPhoneVolume(Int(val * 100), deviceId: deviceId) }
         vm.onMediaAction = { action in service.mediaAction(action, deviceId: deviceId) }
@@ -283,10 +281,9 @@ public final class MacMateAppModel {
     private func updateDevicePluginStates() {
         guard !isMockMode else { return }
         let service = MacMateService.shared
-        let threads = service.smsPlugin.conversations.values.sorted { $0.lastDate > $1.lastDate }
-
         for dev in connectedDevices {
             let id = dev.id
+            let threads = (service.smsPlugin.conversations[id] ?? [:]).values.sorted { $0.lastDate > $1.lastDate }
             // Assign only on change: this runs after every plugin update (a busy
             // SMS sync publishes hundreds of times) and each write re-renders.
             if let battery = service.batteryPlugin.deviceBatteries[id] {

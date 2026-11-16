@@ -20,7 +20,8 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
         [Self.messagesType, Self.attachmentFileType]
     }
 
-    @Published public private(set) var conversations: [Int64: SMSConversation] = [:]
+    /// Threads per device, then by thread id: thread ids are only unique on one phone.
+    @Published public private(set) var conversations: [String: [Int64: SMSConversation]] = [:]
     @Published public private(set) var activeThreadId: Int64?
 
     private let lock = NSLock()
@@ -35,7 +36,8 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
 
     public func handlePacket(connection: DeviceConnection, packet: NetworkPacket) {
         if packet.type == Self.messagesType {
-            handleBatchMessages(packet: packet)
+            guard let deviceId = connection.peerDeviceInfo?.deviceId else { return }
+            handleBatchMessages(packet: packet, deviceId: deviceId)
         }
     }
 
@@ -44,6 +46,7 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
         // `filename` is the attachment's identifier on the phone; it is matched
         // as-is below but must never be used as a path without sanitising.
         let filename = packet.string(for: "filename") ?? "attachment"
+        let deviceId = connection.peerDeviceInfo?.deviceId
         let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let attachmentDir = cachesDir.appendingPathComponent("MacMateAttachments", isDirectory: true)
         let legacyDir = cachesDir.appendingPathComponent("TetherAttachments", isDirectory: true)
@@ -58,9 +61,9 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
             MacMateLog("[SMSPlugin] Saved SMS attachment to \(fileURL.path)")
 
             let targetThreadId = (packet.int64(for: "thread_id")) != 0 ? packet.int64(for: "thread_id") : nil
-            if let threadId = targetThreadId {
+            if let threadId = targetThreadId, let deviceId {
                 DispatchQueue.main.async {
-                    if var conversation = self.conversations[threadId] {
+                    if var conversation = self.conversations[deviceId]?[threadId] {
                         for msgIndex in conversation.messages.indices {
                             for attIndex in conversation.messages[msgIndex].attachments.indices {
                                 if conversation.messages[msgIndex].attachments[attIndex].uniqueIdentifier == filename {
@@ -68,7 +71,7 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
                                 }
                             }
                         }
-                        self.conversations[threadId] = conversation
+                        self.conversations[deviceId]?[threadId] = conversation
                     }
                 }
             }
@@ -104,8 +107,10 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
 
     /// The page before the oldest message loaded, growing like desktop KDE
     /// Connect's: as many as are already loaded, at least 50.
+    /// Call on the main thread, where `conversations` is read and written.
     public func requestEarlierMessages(threadId: Int64, connection: DeviceConnection) {
-        let loaded = DispatchQueue.main.sync { conversations[threadId]?.messages ?? [] }
+        let deviceId = connection.peerDeviceInfo?.deviceId ?? ""
+        let loaded = conversations[deviceId]?[threadId]?.messages ?? []
         guard let oldest = loaded.first?.date else {
             requestConversation(threadId: threadId, connection: connection)
             return
@@ -148,7 +153,8 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
         let activeSIMs = connection.peerDeviceInfo
             .flatMap { MacMateService.shared.connectivityReportPlugin.subscriptions[$0.deviceId] }
             .map { Set($0.keys) } ?? []
-        let conversationSubId = threadId.flatMap { conversations[$0]?.messages.last(where: { $0.subId != nil })?.subId }
+        let sendingDeviceId = connection.peerDeviceInfo?.deviceId ?? ""
+        let conversationSubId = threadId.flatMap { conversations[sendingDeviceId]?[$0]?.messages.last(where: { $0.subId != nil })?.subId }
         let chosenSubId = (subId ?? conversationSubId).flatMap { activeSIMs.count > 1 && activeSIMs.contains($0) ? $0 : nil }
         if let chosenSubId {
             body["subID"] = AnyCodable(chosenSubId)
@@ -171,9 +177,9 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
                 read: true
             )
             DispatchQueue.main.async {
-                if var conv = self.conversations[targetThreadId] {
+                if var conv = self.conversations[sendingDeviceId]?[targetThreadId] {
                     conv.messages.append(optimisticMessage)
-                    self.conversations[targetThreadId] = conv
+                    self.conversations[sendingDeviceId]?[targetThreadId] = conv
                 }
             }
         }
@@ -187,7 +193,7 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
 
     // MARK: - Internal Message Parsing
 
-    private func handleBatchMessages(packet: NetworkPacket) {
+    private func handleBatchMessages(packet: NetworkPacket, deviceId: String) {
         let rawMessages = packet.objectArray(for: "messages")
         guard !rawMessages.isEmpty else { return }
 
@@ -203,7 +209,7 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
         DispatchQueue.main.async {
             for message in parsedMessages {
                 let threadId = message.threadId
-                var conversation = self.conversations[threadId] ?? SMSConversation(threadId: threadId, addresses: message.addresses)
+                var conversation = self.conversations[deviceId]?[threadId] ?? SMSConversation(threadId: threadId, addresses: message.addresses)
 
                 if conversation.addresses.isEmpty && !message.addresses.isEmpty {
                     conversation.addresses = message.addresses
@@ -220,9 +226,9 @@ public final class SMSPlugin: ObservableObject, MacMatePlugin, @unchecked Sendab
 
                 // Sort chronologically
                 conversation.messages.sort(by: { $0.date < $1.date })
-                self.conversations[threadId] = conversation
+                self.conversations[deviceId, default: [:]][threadId] = conversation
             }
-            MacMateLog("[SMSPlugin] Processed \(parsedMessages.count) messages across \(self.conversations.count) threads")
+            MacMateLog("[SMSPlugin] Processed \(parsedMessages.count) messages across \(self.conversations[deviceId]?.count ?? 0) threads")
         }
     }
 }
