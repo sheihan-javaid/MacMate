@@ -92,9 +92,6 @@ public final class SettingsViewModel {
         self.checkLaunchAtLoginStatus()
         self.refreshNotificationStatus()
         _ = self.locationManager // ensure initialized with delegate
-        if locationManager.authorizationStatus == .authorized {
-            self.locationManager.startUpdatingLocation()
-        }
     }
 
     public func saveDeviceName(_ newName: String) {
@@ -187,8 +184,8 @@ public final class SettingsViewModel {
     }
 
     public func requestLocationPermission() {
+        // Reading the Wi-Fi name needs the permission, not location fixes.
         locationManager.requestWhenInUseAuthorization()
-        locationManager.startUpdatingLocation()
     }
 
     public func openLocationSettings() {
@@ -242,9 +239,6 @@ public final class LocationPermissionDelegate: NSObject, CLLocationManagerDelega
 
     public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        if status == .authorized {
-            manager.startUpdatingLocation()
-        }
         Task { @MainActor in
             guard let vm = settingsViewModel else { return }
             // Granting location access never turns sharing on: this callback
