@@ -275,11 +275,9 @@ public final class SharePlugin: ObservableObject, MacMatePlugin, @unchecked Send
     }
 
     public func cancelTransfer(id: UUID) {
-        lock.withLock {
-            if let uploader = activeUploaders.removeValue(forKey: id) {
-                uploader.cancel()
-            }
-        }
+        // Cancel outside the lock: the uploader's completion takes it too.
+        let uploader = lock.withLock { activeUploaders.removeValue(forKey: id) }
+        uploader?.cancel()
         DispatchQueue.main.async {
             if let index = self.transfers.firstIndex(where: { $0.id == id }) {
                 self.transfers[index].status = .cancelled

@@ -246,6 +246,10 @@ public final class PayloadUploader: @unchecked Sendable {
     private var acceptedFD: Int32 = -1
     private var sslContext: SSLContext?
     private var isFinished = false
+    /// The caller's completion, kept so `cancel()` reports through it. `finish`
+    /// runs only once, so a cancel that passed its own empty handler would
+    /// swallow the real one and leave the caller waiting forever.
+    private var completion: ((Result<Void, Error>) -> Void)?
 
     /// Keeps the uploader alive for the duration of a transfer. The accept and
     /// stream work happens on `queue`, so without this a caller that drops its
@@ -296,6 +300,7 @@ public final class PayloadUploader: @unchecked Sendable {
         stateLock.withLock {
             self.listenFD = fd
             self.selfReference = self
+            self.completion = onComplete
         }
         MacMateLog("[PayloadUploader] Listening on port \(chosenPort) for \(fileURL.lastPathComponent) (\(size) bytes)")
 
@@ -463,7 +468,8 @@ public final class PayloadUploader: @unchecked Sendable {
     }
 
     public func cancel() {
-        finish(with: .failure(PayloadError.cancelled)) { _ in }
+        let completion = stateLock.withLock { self.completion }
+        finish(with: .failure(PayloadError.cancelled), onComplete: completion ?? { _ in })
     }
 
     private func finish(with result: Result<Void, Error>, onComplete: @escaping (Result<Void, Error>) -> Void) {
