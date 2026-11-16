@@ -354,34 +354,3 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
         commandLogs[commandId] = existing
     }
 }
-
-/// Turns arbitrary chunks of process output into complete lines.
-/// Used from one pipe's readability handler at a time.
-final class LineBuffer: @unchecked Sendable {
-    private var pending = Data()
-    private let lock = NSLock()
-
-    /// Adds `data` and returns every line it completed.
-    func append(_ data: Data) -> [String] {
-        lock.withLock {
-            pending.append(data)
-            var lines: [String] = []
-            while let newline = pending.firstIndex(of: UInt8(ascii: "\n")) {
-                let line = pending[pending.startIndex..<newline]
-                pending.removeSubrange(pending.startIndex...newline)
-                let text = String(decoding: line, as: UTF8.self)
-                if !text.isEmpty { lines.append(text) }
-            }
-            return lines
-        }
-    }
-
-    /// The last line, if the output didn't end with a newline.
-    func flush() -> [String] {
-        lock.withLock {
-            defer { pending.removeAll() }
-            let text = String(decoding: pending, as: UTF8.self)
-            return text.isEmpty ? [] : [text]
-        }
-    }
-}

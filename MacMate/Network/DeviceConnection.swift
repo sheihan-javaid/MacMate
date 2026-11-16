@@ -137,9 +137,10 @@ public final class DeviceConnection: @unchecked Sendable {
     private var sslContext: SSLContext?
     private var readSource: DispatchSourceRead?
     private let connectionQueue: DispatchQueue
-    private var readBuffer = Data()
+    /// Complete packets are split out of the stream here; only used on `connectionQueue`.
+    private let packetLines = LineBuffer()
+    private var readChunk = [UInt8](repeating: 0, count: 64 * 1024)
     private var isEncrypted = false
-    private let lock = NSLock()
     private var isClosed = false
 
     public init(host: String, port: Int, targetDeviceId: String? = nil, isOutgoing: Bool) {
@@ -368,19 +369,16 @@ public final class DeviceConnection: @unchecked Sendable {
         guard let ctx = sslContext, !isClosed else { return }
 
         while true {
-            var buffer = [UInt8](repeating: 0, count: 8192)
             var bytesRead: Int = 0
-            let status = SSLRead(ctx, &buffer, buffer.count, &bytesRead)
+            let status = SSLRead(ctx, &readChunk, readChunk.count, &bytesRead)
 
             if bytesRead > 0 {
-                lock.withLock {
-                    readBuffer.append(buffer, count: bytesRead)
-                }
-                processReadBuffer()
+                let lines = readChunk.withUnsafeBytes { packetLines.appendBytes($0.baseAddress!, count: bytesRead) }
+                process(lines)
                 // Whatever is left is an incomplete packet. If it is already too big
                 // the peer is broken; clearing it would desync the stream, so drop
                 // the connection instead.
-                let pending = lock.withLock { readBuffer.count }
+                let pending = packetLines.pendingCount
                 if pending > Self.maxPacketBytes {
                     MacMateLog("[DeviceConnection] Packet from \(host) exceeded \(Self.maxPacketBytes) bytes without a terminator; disconnecting")
                     disconnect()
@@ -410,19 +408,8 @@ public final class DeviceConnection: @unchecked Sendable {
         }
     }
 
-    private func processReadBuffer() {
-        var linesToProcess: [Data] = []
-        lock.withLock {
-            while let newlineIndex = readBuffer.firstIndex(of: UInt8(ascii: "\n")) {
-                let lineData = readBuffer.subdata(in: 0..<newlineIndex)
-                readBuffer.removeSubrange(0...newlineIndex)
-                if !lineData.isEmpty {
-                    linesToProcess.append(lineData)
-                }
-            }
-        }
-
-        for lineData in linesToProcess {
+    private func process(_ lines: [Data]) {
+        for lineData in lines {
             do {
                 let packet = try NetworkPacket.unserialize(from: lineData)
                 handlePacket(packet)
