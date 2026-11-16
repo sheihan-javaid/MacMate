@@ -43,13 +43,11 @@ public final class TCPListenerService: @unchecked Sendable {
         guard isRunning else { return }
         isRunning = false
 
+        // The source's cancel handler closes the fd; closing it here as well
+        // could hit a descriptor number that has already been reused.
         readSource?.cancel()
         readSource = nil
-
-        if serverFD >= 0 {
-            close(serverFD)
-            serverFD = -1
-        }
+        serverFD = -1
         activePort = 0
     }
 
