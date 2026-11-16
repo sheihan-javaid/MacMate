@@ -246,12 +246,12 @@ public final class LocationPermissionDelegate: NSObject, CLLocationManagerDelega
         }
         Task { @MainActor in
             guard let vm = settingsViewModel else { return }
-            if status == .authorized {
-                if !vm.shareWiFiSSID {
-                    vm.shareWiFiSSID = true
-                } else {
-                    MacMateService.shared.updateSSIDSharing(enabled: true)
-                }
+            // Granting location access never turns sharing on: this callback
+            // also fires at every launch and would override an opt-out. The
+            // Settings toggle sets the preference itself. If the user already
+            // opted in, send the name now that the permission exists.
+            if status == .authorized, vm.shareWiFiSSID {
+                MacMateService.shared.updateSSIDSharing(enabled: true)
             }
         }
     }
