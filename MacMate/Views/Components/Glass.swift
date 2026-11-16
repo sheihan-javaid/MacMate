@@ -63,6 +63,8 @@ struct GlassCircleButton: View {
     var body: some View {
         VStack(spacing: 6) {
             button
+                // Icon-only buttons have no visible text, only a tooltip.
+                .accessibilityLabel(title)
             if showsTitle {
                 Text(title)
                     .font(.caption)
