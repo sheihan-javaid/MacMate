@@ -40,6 +40,8 @@ public final class UDPDiscoveryService: @unchecked Sendable {
     private static let manualPeerIPsKey = "macmate_manual_peer_ips"
     private static let legacyManualPeerIPsKey = "tether_manual_peer_ips"
 
+    /// What was last written to UserDefaults, so a chatty phone doesn't rewrite it per datagram.
+    private var lastPersistedPeerIP: String?
     private var lastLoggedBroadcastTargets = Set<String>()
     private var hasLoggedOutboundPacket = false
     /// Bumped by each new sweep, so an older one still pausing stops.
@@ -232,8 +234,11 @@ public final class UDPDiscoveryService: @unchecked Sendable {
 
         knownTargetIPs.insert(senderIP)
         noteHost(senderIP, belongsTo: deviceInfo.deviceId)
-        UserDefaults.standard.set(senderIP, forKey: Self.lastPeerIPKey)
-        UserDefaults.standard.set(senderIP, forKey: Self.legacyLastPeerIPKey)
+        if senderIP != lastPersistedPeerIP {
+            lastPersistedPeerIP = senderIP
+            UserDefaults.standard.set(senderIP, forKey: Self.lastPeerIPKey)
+            UserDefaults.standard.set(senderIP, forKey: Self.legacyLastPeerIPKey)
+        }
 
         let isConnected = delegate?.isDeviceConnected(deviceId: deviceInfo.deviceId) ?? false
 
