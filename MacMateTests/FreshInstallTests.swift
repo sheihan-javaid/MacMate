@@ -36,6 +36,10 @@ private struct Sandbox {
     func cleanUp() {
         defaults.removePersistentDomain(forName: suiteName)
         try? FileManager.default.removeItem(at: root)
+        // The suite leaves an empty plist behind; remove this suite's own file only.
+        let plist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Preferences/\(suiteName).plist")
+        try? FileManager.default.removeItem(at: plist)
     }
 
     /// Stands in for what another application might have left on disk: an
