@@ -31,6 +31,8 @@ public final class UDPDiscoveryService: @unchecked Sendable {
     /// connected makes KDE Connect open a new connection and drop the current
     /// one. Kept across launches: Tailscale addresses don't change.
     private var hostOwners: [String: String] = [:]
+    /// Addresses in the order they were last noted, so the oldest go first.
+    private var hostOrder: [String] = []
     private static let hostOwnersKey = "macmate_host_owners"
     private static let legacyHostOwnersKey = "tether_host_owners"
     private static let lastPeerIPKey = "macmate_last_peer_ip"
@@ -47,6 +49,7 @@ public final class UDPDiscoveryService: @unchecked Sendable {
         hostOwners = (UserDefaults.standard.dictionary(forKey: Self.hostOwnersKey) as? [String: String])
             ?? (UserDefaults.standard.dictionary(forKey: Self.legacyHostOwnersKey) as? [String: String])
             ?? [:]
+        hostOrder = Array(hostOwners.keys)
         if let lastIP = UserDefaults.standard.string(forKey: Self.lastPeerIPKey)
             ?? UserDefaults.standard.string(forKey: Self.legacyLastPeerIPKey) {
             knownTargetIPs.insert(lastIP)
@@ -79,11 +82,24 @@ public final class UDPDiscoveryService: @unchecked Sendable {
     /// Records that `host` is one of `deviceId`'s addresses.
     public func noteHost(_ host: String, belongsTo deviceId: String) {
         queue.async {
-            guard self.hostOwners[host] != deviceId else { return }
+            guard self.hostOwners[host] != deviceId else {
+                // Seen again: keep it away from the eviction end.
+                if self.hostOrder.last != host {
+                    self.hostOrder.removeAll { $0 == host }
+                    self.hostOrder.append(host)
+                }
+                return
+            }
             self.hostOwners[host] = deviceId
+            self.hostOrder.removeAll { $0 == host }
+            self.hostOrder.append(host)
             // Bounded, for networks that hand out a new address every visit.
+            // Drops the least recently seen, never the current phone's address.
             if self.hostOwners.count > 64 {
-                self.hostOwners = Dictionary(uniqueKeysWithValues: self.hostOwners.suffix(48))
+                for old in self.hostOrder.prefix(self.hostOrder.count - 48) {
+                    self.hostOwners.removeValue(forKey: old)
+                }
+                self.hostOrder = Array(self.hostOrder.suffix(48))
             }
             UserDefaults.standard.set(self.hostOwners, forKey: Self.hostOwnersKey)
             UserDefaults.standard.set(self.hostOwners, forKey: Self.legacyHostOwnersKey)
