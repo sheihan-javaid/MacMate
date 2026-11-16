@@ -97,7 +97,7 @@ Unlike bulky cross-platform ports that package massive runtime layers, MacMate i
 
 1. **Automatic Local Discovery:** MacMate listens on UDP port `1716` and broadcasts UDP discovery packets. It also announces and resolves `_kdeconnect._udp` via Bonjour (mDNS) to discover devices on networks that restrict UDP broadcast traffic.
 2. **Encrypted Transport:** Once a device is detected, a TCP connection is established on ports `1716`–`1764` and immediately upgraded to TLS using Apple's Security framework.
-3. **Mutual Certificate Pinning:** During the initial pairing handshake, MacMate exchanges self-signed 2048-bit RSA certificates with your phone. Once confirmed, the phone's certificate fingerprint is pinned in your local trust store (`~/Library/Application Support/MacMate/`). Any subsequent connection attempting to use an altered or unpinned certificate is rejected immediately.
+3. **Mutual Certificate Pinning:** Both sides present self-signed ECDSA certificates on the NIST P-256 curve (`prime256v1`, signed with SHA-256) during the TLS handshake. When you pair, MacMate saves the phone's certificate SHA-256 fingerprint in its preferences (`com.subhashh.MacMate`, key `macmate_paired_devices`). A later connection from a device that presents a different certificate is treated as unpaired: nothing it sends other than a pairing request is accepted.
 4. **Tailscale VPN Support:** If both your Mac and phone run [Tailscale](https://tailscale.com) under the same tailnet account, MacMate queries the local Tailscale socket to automatically discover your phone even across cellular data or remote networks. You can also manually connect to any device by entering its IP address or Tailscale MagicDNS name (`device.tailnet.ts.net`).
 
 ---
@@ -204,7 +204,7 @@ MacMate/
 │   │   └── UDPDiscoveryService.swift# Broadcast UDP packet discovery engine
 │   ├── Plugins/                     # Protocol plugins (battery, clipboard, media, notifications, etc.)
 │   ├── Resources/                   # MediaRemote perl adapter & helper assets
-│   ├── Security/                    # RSA key generation, certificate identity, trust store
+│   ├── Security/                    # EC (P-256) key generation, certificate identity, trust store
 │   ├── Updates/                     # In-app update checker and signature verification
 │   ├── Utils/                       # Logging, process coordination, and safe path utilities
 │   ├── ViewModels/                  # Observable application state models
@@ -222,8 +222,8 @@ MacMate/
 ## Security & Privacy Information
 
 - **Local Network Isolation:** All communication between your phone and your Mac remains entirely on your local network (or private encrypted Tailscale network). MacMate runs no cloud servers, requires no user accounts, and contains no analytics, diagnostic beacons, or telemetry trackers.
-- **Cryptographic Identification:** A 2048-bit RSA key pair is generated locally on first launch using macOS Security APIs and stored with strict POSIX file permissions (`0700`) in `~/Library/Application Support/MacMate/`. Keys never leave your machine.
-- **Certificate Pinning:** Connections are refused unless the remote device's certificate matches the pinned fingerprint saved during initial mutual pairing.
+- **Cryptographic Identification:** On first launch MacMate generates a NIST P-256 (`prime256v1`) key and a self-signed ECDSA-with-SHA-256 certificate, valid for 10 years, using the system `openssl`. They are kept in `~/Library/Application Support/MacMate/` (folder `0700`, files `0600`) as `key.pem`, `certificate.pem` and an `identity.p12` bundle whose random passphrase is stored beside it in `identity.pass`. Because that passphrase sits next to the bundle, the real protection is the file permissions and disk encryption (FileVault). Nothing is stored in the keychain, and the keys never leave your Mac. See [docs/identity-backup.md](docs/identity-backup.md) to back them up and restore them safely.
+- **Certificate Pinning:** Only a device whose certificate matches the SHA-256 fingerprint saved at pairing is treated as paired. Others may connect only to request pairing; everything else they send is dropped, and file transfers are refused if the certificate differs. TLS versions and cipher suites are chosen by macOS; MacMate does not override them.
 - **Updater Verification:** Software updates are signed with a dedicated release certificate. Before replacing an installed copy, the update installer verifies bundle integrity, code signature provenance, and matching bundle identifiers.
 - **Independent Storage:** MacMate keeps its own preferences (`com.subhashh.MacMate`), identity and files (`~/Library/Application Support/MacMate`, `~/Library/Caches/MacMate*`). It never reads, imports, changes or deletes data from Tether, KDE Connect or any other application, so a first launch starts clean and every phone is paired afresh.
 
