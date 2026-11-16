@@ -1,6 +1,6 @@
 //
 //  AppVersion.swift
-//  Tether
+//  MacMate
 //
 //  A release version such as "1.5" or "1.5.1". Anything else parses to nil, so
 //  an oddly named tag is never offered as an update.

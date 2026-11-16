@@ -1,6 +1,6 @@
 //
 //  SocketTLS.swift
-//  Tether
+//  MacMate
 //
 //  Shared helpers for the SecureTransport-over-BSD-socket stack used by both the
 //  packet connection and payload transfers.

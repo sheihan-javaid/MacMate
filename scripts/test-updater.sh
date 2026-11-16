@@ -5,7 +5,7 @@
 # runs UpdateInstallerTests, which installs one over the other and checks that
 # unsigned or damaged downloads are refused.
 #
-# Needs the "Tether Self-Signed" identity (docs/signing.md).
+# Needs the "MacMate Self-Signed" identity (docs/signing.md).
 
 set -euo pipefail
 
@@ -16,9 +16,6 @@ mkdir -p "$FIXTURE"
 trap '[[ -n "${SERVER_PID:-}" ]] && kill $SERVER_PID 2>/dev/null; rm -rf "$WORK"' EXIT
 
 IDENTITY="MacMate Self-Signed"
-if ! security find-identity -p codesigning | grep -q ""$IDENTITY""; then
-  IDENTITY="Tether Self-Signed"
-fi
 SIGNED=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="" OTHER_CODE_SIGN_FLAGS="--timestamp=none")
 
 build() { # <derived> <settings...>
@@ -46,7 +43,7 @@ sleep 1
 echo "==> Running UpdateInstallerTests"
 # The test host must be signed like a release, since the updater compares the
 # download's certificate with the running app's.
-TEST_RUNNER_MACMATE_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_TETHER_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_MACMATE_UPDATE_SERVER="http://127.0.0.1:$PORT" TEST_RUNNER_TETHER_UPDATE_SERVER="http://127.0.0.1:$PORT" \
+TEST_RUNNER_MACMATE_UPDATE_FIXTURE="$FIXTURE" TEST_RUNNER_MACMATE_UPDATE_SERVER="http://127.0.0.1:$PORT" \
   xcodebuild test -project MacMate.xcodeproj -scheme MacMate -destination 'platform=macOS' \
     -derivedDataPath "$WORK/test" "${SIGNED[@]}" \
     -only-testing:MacMateTests/UpdateInstallerTests 2>&1 \

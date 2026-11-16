@@ -9,7 +9,7 @@
 # for --publish are read from dist/notes-<version>.md: the changelog only; the
 # download and install instructions are appended here.
 #
-# Every build is signed with the "Tether Self-Signed" certificate in the login
+# Every build is signed with the "MacMate Self-Signed" certificate in the login
 # keychain (docs/signing.md). The in-app updater only installs a download signed
 # with the same certificate as the running app, so it must never change.
 
@@ -28,9 +28,6 @@ MIN_MACOS=$(xcodebuild -project MacMate.xcodeproj -target MacMate -configuration
 [[ -n "$VERSION" ]] || { echo "Could not read MARKETING_VERSION" >&2; exit 1; }
 
 IDENTITY="MacMate Self-Signed"
-if ! security find-identity -p codesigning | grep -q "\"$IDENTITY\""; then
-  IDENTITY="Tether Self-Signed"
-fi
 TAP_REPO="sheihan-javaid/homebrew-macmate"
 security find-identity -p codesigning | grep -q "\"$IDENTITY\"" \
   || { echo "The \"$IDENTITY\" signing identity isn't in the keychain (see docs/signing.md)" >&2; exit 1; }

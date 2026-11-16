@@ -100,11 +100,11 @@ struct ReleaseFeedTests {
 /// Installs a real signed build over another, end to end. Needs fixtures that
 /// scripts/test-updater.sh builds, so it's skipped otherwise:
 ///
-///   TETHER_UPDATE_FIXTURE  folder with old.app, new.zip (1.5.1) and adhoc.zip
-///   TETHER_UPDATE_SERVER   http:// URL serving that folder
+///   MACMATE_UPDATE_FIXTURE  folder with old.app, new.zip (1.5.1) and adhoc.zip
+///   MACMATE_UPDATE_SERVER   http:// URL serving that folder
 @Suite(.serialized) struct UpdateInstallerTests {
-    static let fixture = (ProcessInfo.processInfo.environment["MACMATE_UPDATE_FIXTURE"] ?? ProcessInfo.processInfo.environment["TETHER_UPDATE_FIXTURE"]).map(URL.init(fileURLWithPath:))
-    static let server = (ProcessInfo.processInfo.environment["MACMATE_UPDATE_SERVER"] ?? ProcessInfo.processInfo.environment["TETHER_UPDATE_SERVER"]).flatMap(URL.init(string:))
+    static let fixture = (ProcessInfo.processInfo.environment["MACMATE_UPDATE_FIXTURE"]).map(URL.init(fileURLWithPath:))
+    static let server = (ProcessInfo.processInfo.environment["MACMATE_UPDATE_SERVER"]).flatMap(URL.init(string:))
 
     private func prepare() throws -> (UpdateInstaller, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

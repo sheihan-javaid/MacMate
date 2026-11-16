@@ -225,7 +225,7 @@ MacMate/
 - **Cryptographic Identification:** A 2048-bit RSA key pair is generated locally on first launch using macOS Security APIs and stored with strict POSIX file permissions (`0700`) in `~/Library/Application Support/MacMate/`. Keys never leave your machine.
 - **Certificate Pinning:** Connections are refused unless the remote device's certificate matches the pinned fingerprint saved during initial mutual pairing.
 - **Updater Verification:** Software updates are signed with a dedicated release certificate. Before replacing an installed copy, the update installer verifies bundle integrity, code signature provenance, and matching bundle identifiers.
-- **Migration & Data Preservation:** MacMate automatically detects and preserves existing pairings, device identities, and preferences from legacy Tether installations, ensuring upgrade continuity without requiring devices to be re-paired.
+- **Independent Storage:** MacMate keeps its own preferences (`com.subhashh.MacMate`), identity and files (`~/Library/Application Support/MacMate`, `~/Library/Caches/MacMate*`). It never reads, imports, changes or deletes data from Tether, KDE Connect or any other application, so a first launch starts clean and every phone is paired afresh.
 
 ---
 

@@ -1,6 +1,6 @@
 //
 //  DeviceInfo.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation

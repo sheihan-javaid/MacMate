@@ -3,10 +3,10 @@
 //  MacMateTests
 //
 //  Renders the real app screens with sample data at 2x, for the README and
-//  launch graphics. Skipped unless TETHER_MARKETING_DIR is set:
+//  launch graphics. Skipped unless MACMATE_MARKETING_DIR is set:
 //
-//    TEST_RUNNER_TETHER_MARKETING_DIR=/path xcodebuild test ... \
-//      -only-testing:TetherTests/MarketingCaptures
+//    TEST_RUNNER_MACMATE_MARKETING_DIR=/path xcodebuild test ... \
+//      -only-testing:MacMateTests/MarketingCaptures
 //
 
 import Testing
@@ -16,7 +16,7 @@ import AppKit
 
 @MainActor
 @Suite struct MarketingCaptures {
-    static let outputDirectory = ProcessInfo.processInfo.environment["MACMATE_MARKETING_DIR"] ?? ProcessInfo.processInfo.environment["TETHER_MARKETING_DIR"]
+    static let outputDirectory = ProcessInfo.processInfo.environment["MACMATE_MARKETING_DIR"]
 
     @Test(.enabled(if: outputDirectory != nil))
     func captureScreens() async throws {

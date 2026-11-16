@@ -5,7 +5,7 @@
 //  Renders the main screens to PNG for design review. Skipped unless the
 //  MACMATE_SNAPSHOT_DIR environment variable is set, e.g.
 //
-//    TEST_RUNNER_MACMATE_SNAPSHOT_DIR=/tmp/shots xcodebuild test ... -only-testing:TetherTests/UISnapshots
+//    TEST_RUNNER_MACMATE_SNAPSHOT_DIR=/tmp/shots xcodebuild test ... -only-testing:MacMateTests/UISnapshots
 //
 
 import Testing
@@ -16,7 +16,7 @@ import ScreenCaptureKit
 
 @MainActor
 @Suite struct UISnapshots {
-    static let outputDirectory = ProcessInfo.processInfo.environment["MACMATE_SNAPSHOT_DIR"] ?? ProcessInfo.processInfo.environment["TETHER_SNAPSHOT_DIR"]
+    static let outputDirectory = ProcessInfo.processInfo.environment["MACMATE_SNAPSHOT_DIR"]
 
     @Test(.enabled(if: outputDirectory != nil))
     func renderScreens() async throws {
@@ -116,7 +116,7 @@ import ScreenCaptureKit
 
         // MACMATE_SNAPSHOT_SCALE=2 draws at that scale, for crisp marketing
         // images on a 1x display, at the cost of Liquid Glass.
-        if let scale = (ProcessInfo.processInfo.environment["MACMATE_SNAPSHOT_SCALE"] ?? ProcessInfo.processInfo.environment["TETHER_SNAPSHOT_SCALE"]).flatMap(Double.init), scale > 1,
+        if let scale = (ProcessInfo.processInfo.environment["MACMATE_SNAPSHOT_SCALE"]).flatMap(Double.init), scale > 1,
            let frameView = window.contentView?.superview ?? window.contentView {
             frameView.layoutSubtreeIfNeeded()
             let bounds = frameView.bounds

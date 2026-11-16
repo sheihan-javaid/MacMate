@@ -25,11 +25,11 @@ struct NativeNotificationFilterTests {
         (UNNotificationDefaultActionIdentifier, "Instagram", "0|com.instagram.android|12|null|10346", false),
         (UNNotificationDefaultActionIdentifier, "WhatsApp Business", "0|com.whatsapp.w4b|12|null|10347", false),
         ("MACMATE_REPLY_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
-        ("TETHER_REPLY_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
+        ("MACMATE_REPLY_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
         ("MACMATE_DISMISS_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
-        ("TETHER_DISMISS_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
+        ("MACMATE_DISMISS_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
         ("MACMATE_COPY_CODE_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
-        ("TETHER_COPY_CODE_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
+        ("MACMATE_COPY_CODE_ACTION", "WhatsApp", "0|com.whatsapp|12|null|10345", false),
         (UNNotificationDismissActionIdentifier, "WhatsApp", "0|com.whatsapp|12|null|10345", false),
     ])
     func opensWhatsAppOnlyForBodyClicks(action: String, name: String, id: String, expected: Bool) {

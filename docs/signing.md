@@ -1,6 +1,6 @@
 # Signing and updates
 
-Releases are signed with a self-signed certificate called **MacMate Self-Signed** (historically **Tether Self-Signed**),
+Releases are signed with a self-signed certificate called **MacMate Self-Signed**,
 the same one for every release. MacMate isn't notarized (that needs a paid Apple
 developer account), so this isn't about Gatekeeper. Signing with one fixed
 certificate does two things:
@@ -66,9 +66,9 @@ which is expected for a self-signed certificate and doesn't stop `codesign`.
    notification; clicking it, the menu bar item or **MacMate › Check for
    Updates…** opens the Software Update window.
 2. The release must carry `MacMate-<version>-AppleSilicon.zip` or
-   `MacMate-<version>-Intel.zip` (legacy `Tether-<version>-*` zips are also supported for seamless migration), matching the running build. A release without
+   `MacMate-<version>-Intel.zip`, matching the running build. A release without
    the zip isn't offered. `release.sh` uploads both.
-3. The zip is downloaded to `~/Library/Caches/MacMateUpdate` (cleaning legacy caches) and its SHA-256 is
+3. The zip is downloaded to `~/Library/Caches/MacMateUpdate` and its SHA-256 is
    compared with the digest GitHub reports for the asset.
 4. It's unzipped with `ditto`, and the app inside must have MacMate's bundle ID,
    the advertised version, and a valid signature from the same certificate.

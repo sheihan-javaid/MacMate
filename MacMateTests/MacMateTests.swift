@@ -456,7 +456,7 @@ struct MacMateTests {
         PhoneMount.removeMountPoint(fakeMountURL)
     }
 
-    /// Verifies strict path validation: allows valid immediate child mounts under MacMate/Mounts and Tether/Mounts,
+    /// Verifies strict path validation: allows valid immediate child mounts under MacMate/Mounts,
     /// but rejects path traversal, symlink escapes, root mounts directory itself, and arbitrary system directories.
     @Test func testF10MountDirectoryChildSafetyValidation() throws {
         let mountsDir = PhoneMount.mountsDirectory

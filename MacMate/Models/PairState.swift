@@ -1,6 +1,6 @@
 //
 //  PairState.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation

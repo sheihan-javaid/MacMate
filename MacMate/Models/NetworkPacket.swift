@@ -1,6 +1,6 @@
 //
 //  NetworkPacket.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation

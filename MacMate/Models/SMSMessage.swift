@@ -1,6 +1,6 @@
 //
 //  SMSMessage.swift
-//  Tether
+//  MacMate
 //
 //  Data model for KDE Connect SMS messages and attachments.
 //

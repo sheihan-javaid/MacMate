@@ -3,8 +3,8 @@
 //  MacMateTests
 //
 //  Runs the SSH/SFTP client against a real phone. Skipped unless
-//  TETHER_SFTP_LIVE names a JSON file with the phone's SFTP reply (ip, port,
-//  user, password, path); TETHER_SFTP_HOST overrides the address, e.g. with
+//  MACMATE_SFTP_LIVE names a JSON file with the phone's SFTP reply (ip, port,
+//  user, password, path); MACMATE_SFTP_HOST overrides the address, e.g. with
 //  the phone's Tailscale IP.
 //
 
@@ -13,7 +13,7 @@ import Testing
 @testable import MacMate
 
 @Suite(.serialized) struct SFTPLiveTests {
-    static let credentialsPath = ProcessInfo.processInfo.environment["MACMATE_SFTP_LIVE"] ?? ProcessInfo.processInfo.environment["TETHER_SFTP_LIVE"]
+    static let credentialsPath = ProcessInfo.processInfo.environment["MACMATE_SFTP_LIVE"]
 
     private struct Credentials: Decodable {
         let ip: String
@@ -26,7 +26,7 @@ import Testing
     private func connect() async throws -> (SFTPClient, String) {
         let data = try Data(contentsOf: URL(fileURLWithPath: Self.credentialsPath!))
         let credentials = try JSONDecoder().decode(Credentials.self, from: data)
-        let host = ProcessInfo.processInfo.environment["MACMATE_SFTP_HOST"] ?? ProcessInfo.processInfo.environment["TETHER_SFTP_HOST"] ?? credentials.ip
+        let host = ProcessInfo.processInfo.environment["MACMATE_SFTP_HOST"] ?? credentials.ip
         let client = try await SFTPClient.connect(
             host: host, port: UInt16(credentials.port), user: credentials.user, password: credentials.password,
             checkHostKey: { key in

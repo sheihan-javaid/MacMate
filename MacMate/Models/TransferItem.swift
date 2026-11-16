@@ -1,6 +1,6 @@
 //
 //  TransferItem.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation

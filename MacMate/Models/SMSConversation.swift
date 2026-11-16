@@ -1,6 +1,6 @@
 //
 //  SMSConversation.swift
-//  Tether
+//  MacMate
 //
 //  Data model representing an SMS conversation thread.
 //

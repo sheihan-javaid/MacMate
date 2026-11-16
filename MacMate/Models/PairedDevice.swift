@@ -1,6 +1,6 @@
 //
 //  PairedDevice.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation
