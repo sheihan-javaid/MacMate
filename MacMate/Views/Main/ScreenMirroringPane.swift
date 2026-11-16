@@ -282,8 +282,12 @@ public struct ScreenMirroringPane: View {
         isChecking = true
         defer { isChecking = false }
 
-        let adb = findTool(["/opt/homebrew/bin/adb", "/usr/local/bin/adb", "/usr/bin/adb"], toolName: "adb")
-        let scrcpy = findTool(["/opt/homebrew/bin/scrcpy", "/usr/local/bin/scrcpy", "/usr/bin/scrcpy"], toolName: "scrcpy")
+        // Looking a tool up can spawn `which` and wait for it; keep that off
+        // the main thread so the spinner and window stay responsive.
+        let (adb, scrcpy) = await Task.detached(priority: .userInitiated) {
+            (Self.findTool(["/opt/homebrew/bin/adb", "/usr/local/bin/adb", "/usr/bin/adb"], toolName: "adb"),
+             Self.findTool(["/opt/homebrew/bin/scrcpy", "/usr/local/bin/scrcpy", "/usr/bin/scrcpy"], toolName: "scrcpy"))
+        }.value
 
         self.adbPath = adb
         self.scrcpyPath = scrcpy
@@ -293,7 +297,7 @@ public struct ScreenMirroringPane: View {
         }
     }
 
-    private func findTool(_ candidates: [String], toolName: String) -> String? {
+    private nonisolated static func findTool(_ candidates: [String], toolName: String) -> String? {
         let fm = FileManager.default
         for path in candidates where fm.isExecutableFile(atPath: path) {
             return path
