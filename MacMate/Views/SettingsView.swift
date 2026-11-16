@@ -2,7 +2,6 @@
 //  SettingsView.swift
 //  MacMate
 //
-
 import SwiftUI
 import UserNotifications
 import CoreLocation
@@ -299,10 +298,19 @@ private struct GeneralSettings: View {
 
                 Toggle(isOn: Binding(
                     get: { viewModel.shareWiFiSSID },
-                    set: { viewModel.shareWiFiSSID = $0 }
+                    set: {
+                        viewModel.shareWiFiSSID = $0
+                        if $0 && viewModel.locationAuthStatus == .notDetermined {
+                            viewModel.requestLocationPermission()
+                        }
+                    }
                 )) {
                     Text("Share Wi-Fi network name with paired devices")
                     Text("Lets your phone show this Mac's current Wi-Fi network name in its device card. Requires Location Services permission on macOS.")
+                }
+                Toggle(isOn: $viewModel.shareWallpaper) {
+                    Text("Share desktop wallpaper with paired devices")
+                    Text("Pushes this Mac's main-display wallpaper to paired PocketLink phones. Off by default; only JPEG/PNG under the PocketLink size limits are sent.")
                 }
                 if viewModel.locationAuthStatus == .denied {
                     Button("Open Location Settings…") { viewModel.openLocationSettings() }
@@ -498,7 +506,7 @@ private struct PermissionsSettings: View {
 
     private var locationState: PermissionState {
         switch viewModel.locationAuthStatus {
-        case .authorizedAlways, .authorizedWhenInUse: .granted
+        case .authorized: .granted
         case .denied: .denied
         default: .needed
         }

@@ -38,6 +38,8 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
     public let contactsPlugin = ContactsPlugin()
     public let runCommandPlugin = RunCommandPlugin()
     public let sftpPlugin = SftpPlugin()
+    /// PocketLink wallpaper push (opt-in, default off).
+    public let wallpaperSync = WallpaperSyncService.shared
 
     private let udpDiscovery = UDPDiscoveryService()
     private let mdnsDiscovery = MDNSDiscovery()
@@ -303,6 +305,12 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
 
             // Only a verified, paired device gets its plugins started.
             self.activatePlugins(for: connection)
+            // Push wallpaper once the link is usable (paired + connected).
+            // Clear dedupe on (re)connect so we re-offer once per connection.
+            self.wallpaperSync.clearDedupe(for: id)
+            if connection.pairState == .paired {
+                self.wallpaperSync.requestSend(to: id, connection: connection)
+            }
             MacMateLog("[MacMateService] Connected to \(connection.peerDeviceInfo?.deviceName ?? id)")
         }
     }
@@ -435,6 +443,10 @@ public final class MacMateService: ObservableObject, UDPDiscoveryDelegate, MDNSD
                 }
                 self.dismissPairingRequestNotification(deviceId: info.deviceId)
                 self.activatePlugins(for: connection)
+                if self.connectedDevices[info.deviceId] === connection {
+                    self.wallpaperSync.clearDedupe(for: info.deviceId)
+                    self.wallpaperSync.requestSend(to: info.deviceId, connection: connection)
+                }
             } else if state == .notPaired {
                 if let req = self.incomingPairRequest, req.connection === connection {
                     self.incomingPairRequest = nil

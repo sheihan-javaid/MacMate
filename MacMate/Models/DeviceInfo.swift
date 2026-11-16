@@ -149,9 +149,13 @@ public struct DeviceInfo: Codable, Sendable, Identifiable {
         "kdeconnect.contacts.request_vcards_by_uid",
         // Silencing the ringer from an incoming-call notification
         "kdeconnect.telephony.request_mute",
+        // Cellular and Wi-Fi connectivity reporting
+        "kdeconnect.connectivity_report",
         // Remote commands
         "kdeconnect.runcommand",
-        "kdeconnect.runcommand.output"
+        "kdeconnect.runcommand.output",
+        // PocketLink: push this Mac's desktop wallpaper to the phone (outgoing).
+        "pocketlink.wallpaper"
     ]
 
     // Create UDP discovery packet

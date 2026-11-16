@@ -172,9 +172,6 @@ public final class MacMateAppModel {
             connected.append(vm)
         }
 
-        // Connected but not verified: never paired, or presenting a different
-        // certificate than the pinned one (e.g. KDE Connect was reinstalled).
-        // Either way the fix is to pair, so these show as nearby, not offline.
         let unverifiedIds = Set(service.connectedDevices.compactMap { id, conn in
             !conn.isDisconnected && conn.pairState != .paired ? id : nil
         })

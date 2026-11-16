@@ -59,8 +59,12 @@ public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, Wi
     public func onConnected(connection: DeviceConnection) {
         guard let deviceId = connection.peerDeviceInfo?.deviceId else { return }
         activeConnections[deviceId] = connection
-        if shouldSendSSID, let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) {
-            sendSSID(ssid, to: connection)
+        if shouldSendSSID {
+            if let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) {
+                sendSSID(ssid, to: connection)
+            } else {
+                MacMateLog("[ConnectivityReportPlugin] shouldSendSSID is true on connect, but currentSSID() returned nil (check macOS Location Services permission)")
+            }
         }
     }
 
@@ -74,14 +78,21 @@ public final class ConnectivityReportPlugin: ObservableObject, MacMatePlugin, Wi
 
     /// Sends this Mac's WiFi SSID to all connected peers.
     public func broadcastSSID() {
-        guard shouldSendSSID else { return }
-        guard let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) else { return }
+        guard shouldSendSSID else {
+            MacMateLog("[ConnectivityReportPlugin] broadcastSSID skipped: shouldSendSSID is false")
+            return
+        }
+        guard let ssid = ssidProvider.currentSSID().flatMap(sanitizeSsid) else {
+            MacMateLog("[ConnectivityReportPlugin] broadcastSSID skipped: currentSSID() returned nil (check macOS Location Services permission)")
+            return
+        }
         for connection in activeConnections.values {
             sendSSID(ssid, to: connection)
         }
     }
 
     private func sendSSID(_ ssid: String, to connection: DeviceConnection) {
+        MacMateLog("[ConnectivityReportPlugin] Sending Wi-Fi SSID '\(ssid)' to \(connection.peerDeviceInfo?.deviceName ?? "device")")
         let packet = NetworkPacket(type: "kdeconnect.connectivity_report", body: ["ssid": ssid])
         connection.send(packet: packet)
     }

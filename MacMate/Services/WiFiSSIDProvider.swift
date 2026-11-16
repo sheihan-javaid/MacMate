@@ -1,8 +1,6 @@
-//
 //  WiFiSSIDProvider.swift
 //  MacMate
 //
-
 import CoreWLAN
 import Foundation
 
@@ -16,7 +14,18 @@ public protocol WiFiSSIDProvider: Sendable {
 public struct CoreWLANSSIDProvider: WiFiSSIDProvider {
     public init() {}
     public func currentSSID() -> String? {
-        CWWiFiClient.shared().interface()?.ssid()
+        let client = CWWiFiClient.shared()
+        if let ssid = client.interface()?.ssid(), !ssid.isEmpty {
+            return ssid
+        }
+        if let interfaces = client.interfaces() {
+            for iface in interfaces {
+                if let ssid = iface.ssid(), !ssid.isEmpty {
+                    return ssid
+                }
+            }
+        }
+        return nil
     }
 }
 

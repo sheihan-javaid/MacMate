@@ -41,6 +41,15 @@ public final class SettingsViewModel {
             MacMateService.shared.updateSSIDSharing(enabled: newValue)
         }
     }
+    /// Whether this Mac pushes its desktop wallpaper to paired PocketLink devices.
+    /// Opt-in and off by default; nothing is sent unless this is on.
+    public var shareWallpaper: Bool {
+        get { UserDefaults.standard.bool(forKey: "macmate_share_wallpaper") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "macmate_share_wallpaper")
+            // MacMateService.shared.wallpaperSync.isEnabled reads this same key.
+        }
+    }
     /// Current Core Location authorization status.
     public var locationAuthStatus: CLAuthorizationStatus {
         locationManager.authorizationStatus
@@ -82,6 +91,9 @@ public final class SettingsViewModel {
         self.checkLaunchAtLoginStatus()
         self.refreshNotificationStatus()
         _ = self.locationManager // ensure initialized with delegate
+        if locationManager.authorizationStatus == .authorized {
+            self.locationManager.startUpdatingLocation()
+        }
     }
 
     public func saveDeviceName(_ newName: String) {
@@ -175,6 +187,7 @@ public final class SettingsViewModel {
 
     public func requestLocationPermission() {
         locationManager.requestWhenInUseAuthorization()
+        locationManager.startUpdatingLocation()
     }
 
     public func openLocationSettings() {
@@ -227,7 +240,19 @@ public final class LocationPermissionDelegate: NSObject, CLLocationManagerDelega
     public weak var settingsViewModel: SettingsViewModel?
 
     public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        // Status is read on demand via SettingsViewModel.locationAuthStatus;
-        // no notification needed since views re-read the computed property.
+        let status = manager.authorizationStatus
+        if status == .authorized {
+            manager.startUpdatingLocation()
+        }
+        Task { @MainActor in
+            guard let vm = settingsViewModel else { return }
+            if status == .authorized {
+                if !vm.shareWiFiSSID {
+                    vm.shareWiFiSSID = true
+                } else {
+                    MacMateService.shared.updateSSIDSharing(enabled: true)
+                }
+            }
+        }
     }
 }
