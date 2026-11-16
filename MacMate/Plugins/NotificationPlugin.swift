@@ -515,6 +515,16 @@ public final class NotificationPlugin: NSObject, ObservableObject, MacMatePlugin
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        // The system calls this on a background queue, but the handler reads
+        // `activeConnections` and changes the published `notifications`.
+        nonisolated(unsafe) let response = response
+        nonisolated(unsafe) let completionHandler = completionHandler
+        DispatchQueue.main.async { [self] in
+            handle(response: response, completionHandler: completionHandler)
+        }
+    }
+
+    private func handle(response: UNNotificationResponse, completionHandler: @escaping () -> Void) {
         if response.notification.request.content.categoryIdentifier == UpdateController.notificationCategory {
             Task { @MainActor in UpdateController.shared.showWindow() }
             completionHandler()
