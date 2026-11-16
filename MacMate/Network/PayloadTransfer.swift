@@ -352,7 +352,9 @@ public final class PayloadUploader: @unchecked Sendable {
     ) {
         let listenSocket = stateLock.withLock { listenFD }
         guard listenSocket >= 0 else {
-            onComplete(.failure(PayloadError.cancelled))
+            // Cancelled before this ran. `finish` reports once; calling
+            // `onComplete` directly would report a second time.
+            finish(with: .failure(PayloadError.cancelled), onComplete: onComplete)
             return
         }
 
