@@ -31,12 +31,9 @@ public struct TailscalePeer: Sendable, Equatable, Identifiable {
 public nonisolated enum TailscaleDiscovery {
     /// Settings › General › "Find devices over Tailscale". On unless turned off.
     public static let enabledKey = "macmate_tailscale_discovery"
-    public static let legacyEnabledKey = "tether_tailscale_discovery"
 
     public static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: enabledKey) as? Bool
-            ?? UserDefaults.standard.object(forKey: legacyEnabledKey) as? Bool
-            ?? true
+        UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
     }
 
     /// The Mac app bundles its CLI; Homebrew and the standalone package install one on PATH.

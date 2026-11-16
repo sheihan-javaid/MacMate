@@ -34,11 +34,8 @@ public final class UDPDiscoveryService: @unchecked Sendable {
     /// Addresses in the order they were last noted, so the oldest go first.
     private var hostOrder: [String] = []
     private static let hostOwnersKey = "macmate_host_owners"
-    private static let legacyHostOwnersKey = "tether_host_owners"
     private static let lastPeerIPKey = "macmate_last_peer_ip"
-    private static let legacyLastPeerIPKey = "tether_last_peer_ip"
     private static let manualPeerIPsKey = "macmate_manual_peer_ips"
-    private static let legacyManualPeerIPsKey = "tether_manual_peer_ips"
 
     /// What was last written to UserDefaults, so a chatty phone doesn't rewrite it per datagram.
     private var lastPersistedPeerIP: String?
@@ -47,36 +44,33 @@ public final class UDPDiscoveryService: @unchecked Sendable {
     /// Bumped by each new sweep, so an older one still pausing stops.
     private var sweepGeneration = 0
 
-    public init() {
-        hostOwners = (UserDefaults.standard.dictionary(forKey: Self.hostOwnersKey) as? [String: String])
-            ?? (UserDefaults.standard.dictionary(forKey: Self.legacyHostOwnersKey) as? [String: String])
-            ?? [:]
+    private let defaults: UserDefaults
+
+    /// Tests pass their own `defaults` so they never touch the saved addresses.
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        hostOwners = (defaults.dictionary(forKey: Self.hostOwnersKey) as? [String: String]) ?? [:]
         hostOrder = Array(hostOwners.keys)
-        if let lastIP = UserDefaults.standard.string(forKey: Self.lastPeerIPKey)
-            ?? UserDefaults.standard.string(forKey: Self.legacyLastPeerIPKey) {
+        if let lastIP = defaults.string(forKey: Self.lastPeerIPKey) {
             knownTargetIPs.insert(lastIP)
         }
-        let manualIPs = UserDefaults.standard.stringArray(forKey: Self.manualPeerIPsKey)
-            ?? UserDefaults.standard.stringArray(forKey: Self.legacyManualPeerIPsKey)
-        if let manualIPs {
-            for ip in manualIPs {
-                knownTargetIPs.insert(ip)
-            }
+        for ip in defaults.stringArray(forKey: Self.manualPeerIPsKey) ?? [] {
+            knownTargetIPs.insert(ip)
         }
     }
+
+    /// Addresses saved by this app only; exposed for tests.
+    var persistedKnownTargets: Set<String> { queue.sync { knownTargetIPs } }
 
     public func addKnownTarget(ip: String) {
         let trimmed = ip.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         queue.async {
             self.knownTargetIPs.insert(trimmed)
-            var current = UserDefaults.standard.stringArray(forKey: Self.manualPeerIPsKey)
-                ?? UserDefaults.standard.stringArray(forKey: Self.legacyManualPeerIPsKey)
-                ?? []
+            var current = self.defaults.stringArray(forKey: Self.manualPeerIPsKey) ?? []
             if !current.contains(trimmed) {
                 current.append(trimmed)
-                UserDefaults.standard.set(current, forKey: Self.manualPeerIPsKey)
-                UserDefaults.standard.set(current, forKey: Self.legacyManualPeerIPsKey)
+                self.defaults.set(current, forKey: Self.manualPeerIPsKey)
             }
         }
     }
@@ -103,8 +97,7 @@ public final class UDPDiscoveryService: @unchecked Sendable {
                 }
                 self.hostOrder = Array(self.hostOrder.suffix(48))
             }
-            UserDefaults.standard.set(self.hostOwners, forKey: Self.hostOwnersKey)
-            UserDefaults.standard.set(self.hostOwners, forKey: Self.legacyHostOwnersKey)
+            self.defaults.set(self.hostOwners, forKey: Self.hostOwnersKey)
         }
     }
 
@@ -236,8 +229,7 @@ public final class UDPDiscoveryService: @unchecked Sendable {
         noteHost(senderIP, belongsTo: deviceInfo.deviceId)
         if senderIP != lastPersistedPeerIP {
             lastPersistedPeerIP = senderIP
-            UserDefaults.standard.set(senderIP, forKey: Self.lastPeerIPKey)
-            UserDefaults.standard.set(senderIP, forKey: Self.legacyLastPeerIPKey)
+            defaults.set(senderIP, forKey: Self.lastPeerIPKey)
         }
 
         let isConnected = delegate?.isDeviceConnected(deviceId: deviceInfo.deviceId) ?? false

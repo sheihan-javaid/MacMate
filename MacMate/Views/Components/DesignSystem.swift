@@ -1,6 +1,6 @@
 //
 //  DesignSystem.swift
-//  Tether
+//  MacMate
 //
 //  The few pieces the system doesn't provide. Everything else is a stock
 //  control, a grouped Form, or a sidebar List, so the app follows the user's
@@ -151,16 +151,14 @@ enum MotionPreference {
     /// Settings › General › "Reduce motion". Off by default: MacMate's few
     /// animations are short, and people who want them gone can say so here.
     static let key = "macmate_reduce_motion"
-    static let legacyKey = "tether_reduce_motion"
 }
 
 private struct MotionPreferenceModifier: ViewModifier {
     @AppStorage(MotionPreference.key) private var reduceMotion = false
-    @AppStorage(MotionPreference.legacyKey) private var legacyReduceMotion = false
 
     func body(content: Content) -> some View {
         content.transaction { transaction in
-            if reduceMotion || legacyReduceMotion {
+            if reduceMotion {
                 transaction.disablesAnimations = true
                 transaction.animation = nil
             }

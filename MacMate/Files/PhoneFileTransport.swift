@@ -60,7 +60,6 @@ actor SFTPTransport: PhoneFileTransport {
     }
 
     static func hostKeyDefaultsKey(_ deviceId: String) -> String { "macmate_files_hostkey_\(deviceId)" }
-    static func legacyHostKeyDefaultsKey(_ deviceId: String) -> String { "tether_files_hostkey_\(deviceId)" }
 
     private func session() async throws -> SFTPClient {
         if let client, !(await client.isClosed) { return client }
@@ -70,20 +69,18 @@ actor SFTPTransport: PhoneFileTransport {
         let task = Task { () throws -> (SFTPClient, [(path: String, name: String)]) in
             let credentials = try await plugin.requestCredentials(deviceId: deviceId)
             let pinKey = Self.hostKeyDefaultsKey(deviceId)
-            let legacyKey = Self.legacyHostKeyDefaultsKey(deviceId)
             let client = try await SFTPClient.connect(
                 host: credentials.address, port: credentials.port,
                 user: credentials.user, password: credentials.password,
                 checkHostKey: { key in
                     let defaults = UserDefaults.standard
-                    if let pinned = defaults.string(forKey: pinKey) ?? defaults.string(forKey: legacyKey) {
+                    if let pinned = defaults.string(forKey: pinKey) {
                         if pinned != key.fingerprint {
                             MacMateLog("[Files] SFTP host key changed: expected \(pinned), got \(key.fingerprint)")
                         }
                         return pinned == key.fingerprint
                     }
                     defaults.set(key.fingerprint, forKey: pinKey)
-                    defaults.set(key.fingerprint, forKey: legacyKey)
                     return true
                 }
             )

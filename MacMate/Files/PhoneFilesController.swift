@@ -27,14 +27,12 @@ enum PhoneFilesMethod: String, CaseIterable, Identifiable {
 final class PhoneFilesController {
     static let shared = PhoneFilesController()
 
-    private static let enabledKey = "macmate_files_enabled"
-    private static let legacyEnabledKey = "tether_files_enabled"
+    static let enabledKey = "macmate_files_enabled"
 
     /// Mounts connected phones as drives.
     var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
-            UserDefaults.standard.set(isEnabled, forKey: Self.legacyEnabledKey)
             Task { await syncMounts() }
         }
     }
@@ -84,9 +82,7 @@ final class PhoneFilesController {
     private var started = false
 
     private init() {
-        isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool
-            ?? UserDefaults.standard.object(forKey: Self.legacyEnabledKey) as? Bool
-            ?? true
+        isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true
     }
 
     func start() {
@@ -140,26 +136,22 @@ final class PhoneFilesController {
     // MARK: - Settings per phone
 
     func method(for deviceId: String) -> PhoneFilesMethod {
-        (UserDefaults.standard.string(forKey: "macmate_files_method_\(deviceId)")
-            ?? UserDefaults.standard.string(forKey: "tether_files_method_\(deviceId)"))
+        UserDefaults.standard.string(forKey: "macmate_files_method_\(deviceId)")
             .flatMap(PhoneFilesMethod.init) ?? .sftp
     }
 
     func setMethod(_ method: PhoneFilesMethod, for deviceId: String) {
         UserDefaults.standard.set(method.rawValue, forKey: "macmate_files_method_\(deviceId)")
-        UserDefaults.standard.set(method.rawValue, forKey: "tether_files_method_\(deviceId)")
         reconfigure(deviceId)
     }
 
     func adbAddress(for deviceId: String) -> String {
-        UserDefaults.standard.string(forKey: "macmate_files_adb_\(deviceId)")
-            ?? UserDefaults.standard.string(forKey: "tether_files_adb_\(deviceId)") ?? ""
+        UserDefaults.standard.string(forKey: "macmate_files_adb_\(deviceId)") ?? ""
     }
 
     func setADBAddress(_ address: String, for deviceId: String) {
         let trimmed = address.trimmingCharacters(in: .whitespaces)
         UserDefaults.standard.set(trimmed, forKey: "macmate_files_adb_\(deviceId)")
-        UserDefaults.standard.set(trimmed, forKey: "tether_files_adb_\(deviceId)")
         reconfigure(deviceId)
     }
 

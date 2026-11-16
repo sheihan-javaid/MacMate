@@ -27,9 +27,9 @@ public final class DeviceIdentity: @unchecked Sendable {
     private let portLock = NSLock()
     private var tcpPort = 1716
 
-    /// PKCS#12 passwords used by builds before 1.3. Only tried so an existing
-    /// identity can be re-wrapped with a per-install passphrase.
-    private static let legacyPassphrases = ["macmate", "tether", "kdeconnect"]
+    /// The fixed PKCS#12 password early MacMate builds used. Only tried so an
+    /// existing MacMate identity can be re-wrapped with a per-install passphrase.
+    private static let legacyPassphrases = ["macmate"]
 
     private struct Paths {
         let directory: URL
@@ -49,64 +49,30 @@ public final class DeviceIdentity: @unchecked Sendable {
         var all: [URL] { [p12, cert, key, passphrase] }
     }
 
-    private init() {
+    private convenience init() {
+        self.init(applicationSupportRoot: AppIdentity.applicationSupportRoot(), defaults: .standard)
+    }
+
+    /// Reads and writes only `applicationSupportRoot/MacMate` and the `macmate_*`
+    /// keys in `defaults`. A first launch creates a new identity; nothing is
+    /// imported from any other application. Tests pass their own root and defaults.
+    init(applicationSupportRoot: URL, defaults: UserDefaults) {
         let fm = FileManager.default
-        let appSupportRoot = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let paths = Paths(directory: appSupportRoot.appendingPathComponent("MacMate", isDirectory: true))
+        let paths = Paths(directory: AppIdentity.applicationSupportDirectory(root: applicationSupportRoot))
 
         try? fm.createDirectory(at: paths.directory, withIntermediateDirectories: true)
         try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: paths.directory.path)
 
-        // Migration from previous Tether installation if available
-        let legacyAppSupport = appSupportRoot.appendingPathComponent("Tether", isDirectory: true)
-        if !fm.fileExists(atPath: paths.p12.path), fm.fileExists(atPath: legacyAppSupport.path) {
-            let legacyPaths = Paths(directory: legacyAppSupport)
-            for item in legacyPaths.all {
-                let target = paths.directory.appendingPathComponent(item.lastPathComponent)
-                if fm.fileExists(atPath: item.path) && !fm.fileExists(atPath: target.path) {
-                    try? fm.copyItem(at: item, to: target)
-                }
-            }
-        }
-
-        // Migration from previous KDEConnect installation if available
-        let oldAppSupport = appSupportRoot.appendingPathComponent("KDEConnect", isDirectory: true)
-        let oldCertURL = oldAppSupport.appendingPathComponent("certificate.pem")
-        let oldKeyURL = oldAppSupport.appendingPathComponent("key.pem")
-
-        if !fm.fileExists(atPath: paths.key.path),
-           fm.fileExists(atPath: oldKeyURL.path),
-           fm.fileExists(atPath: oldCertURL.path) {
-            try? fm.copyItem(at: oldCertURL, to: paths.cert)
-            try? fm.copyItem(at: oldKeyURL, to: paths.key)
-            Self.exportPKCS12(paths: paths, passphrase: Self.storedOrNewPassphrase(paths: paths))
-            if let oldId = UserDefaults.standard.string(forKey: "kdeconnect_device_id") {
-                UserDefaults.standard.set(oldId, forKey: "macmate_device_id")
-                UserDefaults.standard.set(oldId, forKey: "tether_device_id")
-            }
-        }
-
-        var id = UserDefaults.standard.string(forKey: "macmate_device_id")
-            ?? UserDefaults.standard.string(forKey: "tether_device_id")
-            ?? UserDefaults.standard.string(forKey: "kdeconnect_device_id")
-        let name = UserDefaults.standard.string(forKey: "macmate_device_name")
-            ?? UserDefaults.standard.string(forKey: "tether_device_name")
-            ?? UserDefaults.standard.string(forKey: "kdeconnect_device_name")
-            ?? Host.current().localizedName ?? "Mac"
+        var id = defaults.string(forKey: Self.deviceIdKey)
+        let name = defaults.string(forKey: Self.deviceNameKey) ?? Host.current().localizedName ?? "Mac"
 
         if id == nil || !fm.fileExists(atPath: paths.p12.path) {
-            id = Self.generateIdentity(paths: paths, deviceName: name)
+            id = Self.generateIdentity(paths: paths)
         }
         if let id {
-            UserDefaults.standard.set(id, forKey: "macmate_device_id")
-            UserDefaults.standard.set(id, forKey: "tether_device_id")
+            defaults.set(id, forKey: Self.deviceIdKey)
         }
-        UserDefaults.standard.set(name, forKey: "macmate_device_name")
-        UserDefaults.standard.set(name, forKey: "tether_device_name")
-
-        // Remove any legacy on-disk keychain that caused password prompts
-        try? fm.removeItem(at: paths.directory.appendingPathComponent("macmate.keychain-db"))
-        try? fm.removeItem(at: paths.directory.appendingPathComponent("tether.keychain-db"))
+        defaults.set(name, forKey: Self.deviceNameKey)
 
         var identity = Self.importIdentity(paths: paths)
         if identity == nil {
@@ -115,7 +81,8 @@ public final class DeviceIdentity: @unchecked Sendable {
             // Peers will see a new device and need to pair again.
             MacMateLog("[DeviceIdentity] Stored identity could not be imported; generating a new one")
             Self.quarantine(paths: paths)
-            id = Self.generateIdentity(paths: paths, deviceName: name)
+            id = Self.generateIdentity(paths: paths)
+            if let id { defaults.set(id, forKey: Self.deviceIdKey) }
             identity = Self.importIdentity(paths: paths)
         }
 
@@ -135,6 +102,9 @@ public final class DeviceIdentity: @unchecked Sendable {
         self.certificatePEM = (try? String(contentsOf: paths.cert, encoding: .utf8)) ?? ""
         self.certificateFingerprint = SocketTLS.fingerprint(of: certRef).uppercased()
     }
+
+    static let deviceIdKey = "macmate_device_id"
+    static let deviceNameKey = "macmate_device_name"
 
     // MARK: - Identity storage
 
@@ -191,7 +161,7 @@ public final class DeviceIdentity: @unchecked Sendable {
     }
 
     /// Creates a fresh key, certificate and bundle, and returns the new device ID.
-    private static func generateIdentity(paths: Paths, deviceName: String) -> String {
+    private static func generateIdentity(paths: Paths) -> String {
         let newId = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         let passphrase = newPassphrase()
 
@@ -199,19 +169,17 @@ public final class DeviceIdentity: @unchecked Sendable {
         openssl ecparam -name prime256v1 -genkey -noout -out "$KEY" && \
         chmod 600 "$KEY" && \
         openssl req -new -x509 -key "$KEY" -out "$CERT" -days 3650 -subj "/CN=\(newId)/O=KDE/OU=KDE Connect" && \
-        openssl pkcs12 -export -in "$CERT" -inkey "$KEY" -out "$P12" -passout env:TETHER_P12_PASS
+        openssl pkcs12 -export -in "$CERT" -inkey "$KEY" -out "$P12" -passout env:MACMATE_P12_PASS
         """, paths: paths, passphrase: passphrase)
 
         writePassphrase(passphrase, paths: paths)
         restrictPermissions(paths: paths)
-        UserDefaults.standard.set(newId, forKey: "tether_device_id")
-        UserDefaults.standard.set(deviceName, forKey: "tether_device_name")
         return newId
     }
 
     private static func exportPKCS12(paths: Paths, passphrase: String) {
         runOpenSSL(
-            #"openssl pkcs12 -export -in "$CERT" -inkey "$KEY" -out "$P12" -passout env:TETHER_P12_PASS"#,
+            #"openssl pkcs12 -export -in "$CERT" -inkey "$KEY" -out "$P12" -passout env:MACMATE_P12_PASS"#,
             paths: paths,
             passphrase: passphrase
         )
@@ -229,7 +197,7 @@ public final class DeviceIdentity: @unchecked Sendable {
             "KEY": paths.key.path,
             "CERT": paths.cert.path,
             "P12": paths.p12.path,
-            "TETHER_P12_PASS": passphrase
+            "MACMATE_P12_PASS": passphrase
         ]
         do {
             try process.run()

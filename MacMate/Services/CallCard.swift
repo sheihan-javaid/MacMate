@@ -21,10 +21,8 @@ final class CallCard {
 
     /// Settings › General › "Show calls in a floating card". On by default.
     nonisolated static let settingKey = "macmate_call_card"
-    nonisolated static let legacySettingKey = "tether_call_card"
     nonisolated static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: settingKey) as? Bool
-            ?? (UserDefaults.standard.object(forKey: legacySettingKey) as? Bool ?? true)
+        UserDefaults.standard.object(forKey: settingKey) as? Bool ?? true
     }
 
     struct Caller {
@@ -237,7 +235,6 @@ final class CallCard {
     private static var reduceMotion: Bool {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             || UserDefaults.standard.bool(forKey: MotionPreference.key)
-            || UserDefaults.standard.bool(forKey: MotionPreference.legacyKey)
     }
 
     #if DEBUG

@@ -15,10 +15,9 @@ final class CallMediaPauser {
 
     /// Settings › General › "Pause media during calls". On by default.
     static let settingKey = "macmate_pause_media_during_calls"
-    static let legacySettingKey = "tether_pause_media_during_calls"
 
     private var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: Self.settingKey) as? Bool ?? (UserDefaults.standard.object(forKey: Self.legacySettingKey) as? Bool ?? true)
+        UserDefaults.standard.object(forKey: Self.settingKey) as? Bool ?? true
     }
 
     /// Phones with a call ringing or under way. Keyed by phone, not by event:

@@ -24,12 +24,10 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
     private var activeProcesses: [UInt32: Process] = [:]
     private var executionCounter: UInt32 = 0
     private let userDefaultsKey = "macmate_remote_commands"
-    private let legacyUserDefaultsKey = "tether_remote_commands"
 
     /// Commands › "Show my Shortcuts on the phone". Off by default: a shortcut
     /// can do anything, so exposing them is the user's choice.
     static let shortcutsKey = "macmate_share_shortcuts"
-    static let legacyShortcutsKey = "tether_share_shortcuts"
     static let shortcutPrefix = "shortcut:"
     /// The user's Shortcuts, as commands, when sharing them is on.
     private var shortcutCommands: [RemoteCommand] = []
@@ -60,7 +58,7 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
     /// Reads the user's Shortcuts and sends the updated list to every
     /// connected phone. Also called when the setting changes.
     public func refreshShortcuts() {
-        let enabled = defaults.object(forKey: Self.shortcutsKey) as? Bool ?? defaults.bool(forKey: Self.legacyShortcutsKey)
+        let enabled = defaults.bool(forKey: Self.shortcutsKey)
         DispatchQueue.global(qos: .utility).async {
             let names = enabled ? Self.shortcutNames() : []
             let commands = names.map {
@@ -149,7 +147,7 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
     }
 
     private func loadCommands() {
-        if let data = defaults.data(forKey: userDefaultsKey) ?? defaults.data(forKey: legacyUserDefaultsKey),
+        if let data = defaults.data(forKey: userDefaultsKey),
            let loaded = try? JSONDecoder().decode([RemoteCommand].self, from: data) {
             self.commands = loaded
         } else {
@@ -161,7 +159,6 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
     private func saveCommands() {
         if let data = try? JSONEncoder().encode(commands) {
             defaults.set(data, forKey: userDefaultsKey)
-            defaults.set(data, forKey: legacyUserDefaultsKey)
         }
     }
 

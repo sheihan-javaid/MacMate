@@ -1,6 +1,6 @@
 //
 //  Glass.swift
-//  Tether
+//  MacMate
 //
 //  MacMate's surface language: Liquid Glass on macOS 26, the system's
 //  translucent materials on macOS 15, same shapes and spacing on both.
@@ -216,10 +216,9 @@ private struct StaggeredEntrance: ViewModifier {
     let index: Int
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage(MotionPreference.key) private var macmateReduceMotion = false
-    @AppStorage(MotionPreference.legacyKey) private var legacyReduceMotion = false
     @State private var isShown = false
 
-    private var reduceMotion: Bool { systemReduceMotion || macmateReduceMotion || legacyReduceMotion }
+    private var reduceMotion: Bool { systemReduceMotion || macmateReduceMotion }
 
     func body(content: Content) -> some View {
         content

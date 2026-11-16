@@ -17,10 +17,8 @@ final class AwayLock {
 
     /// Settings › General › "Lock this Mac when your phone leaves". Off by default.
     static let settingKey = "macmate_lock_when_phone_leaves"
-    static let legacySettingKey = "tether_lock_when_phone_leaves"
     private var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: Self.settingKey) as? Bool
-            ?? UserDefaults.standard.bool(forKey: Self.legacySettingKey)
+        UserDefaults.standard.bool(forKey: Self.settingKey)
     }
     static let grace: TimeInterval = 30
 

@@ -1,6 +1,6 @@
 //
 //  OneTimeCode.swift
-//  Tether
+//  MacMate
 //
 //  Finds a one-time verification code in a phone notification, so it can be
 //  copied with one click. Only text that talks about a code is considered,
@@ -13,10 +13,8 @@ nonisolated enum OneTimeCode {
     /// Settings › General › "Copy verification codes automatically". Off by
     /// default: replacing the clipboard unasked can lose what was on it.
     static let autoCopyKey = "macmate_copy_codes_automatically"
-    static let legacyAutoCopyKey = "tether_copy_codes_automatically"
     static var isAutoCopyEnabled: Bool {
-        UserDefaults.standard.object(forKey: autoCopyKey) as? Bool
-            ?? UserDefaults.standard.bool(forKey: legacyAutoCopyKey)
+        UserDefaults.standard.bool(forKey: autoCopyKey)
     }
 
     private static let keywords = [

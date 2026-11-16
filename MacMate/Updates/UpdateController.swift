@@ -28,16 +28,12 @@ final class UpdateController {
     }
 
     static let notificationCategory = "MACMATE_UPDATE"
-    static let legacyNotificationCategory = "TETHER_UPDATE"
 
-    private static let automaticKey = "macmate_update_automatic"
-    private static let legacyAutomaticKey = "tether_update_automatic"
+    static let automaticKey = "macmate_update_automatic"
 
     private static let lastCheckedKey = "macmate_update_last_checked"
-    private static let legacyLastCheckedKey = "tether_update_last_checked"
 
     private static let skippedKey = "macmate_update_skipped_version"
-    private static let legacySkippedKey = "tether_update_skipped_version"
 
     private static let checkInterval: TimeInterval = 24 * 3600
 
@@ -49,7 +45,6 @@ final class UpdateController {
     var checksAutomatically: Bool {
         didSet {
             UserDefaults.standard.set(checksAutomatically, forKey: Self.automaticKey)
-            UserDefaults.standard.set(checksAutomatically, forKey: Self.legacyAutomaticKey)
         }
     }
 
@@ -66,11 +61,8 @@ final class UpdateController {
 
     private init() {
         let defaults = UserDefaults.standard
-        checksAutomatically = defaults.object(forKey: Self.automaticKey) as? Bool
-            ?? defaults.object(forKey: Self.legacyAutomaticKey) as? Bool
-            ?? true
+        checksAutomatically = defaults.object(forKey: Self.automaticKey) as? Bool ?? true
         lastChecked = defaults.object(forKey: Self.lastCheckedKey) as? Date
-            ?? defaults.object(forKey: Self.legacyLastCheckedKey) as? Date
     }
 
     // MARK: - Checking
@@ -116,7 +108,6 @@ final class UpdateController {
 
         lastChecked = Date()
         UserDefaults.standard.set(lastChecked, forKey: Self.lastCheckedKey)
-        UserDefaults.standard.set(lastChecked, forKey: Self.legacyLastCheckedKey)
 
         guard let release, let current = AppVersion.current, release.version > current else {
             availableRelease = nil
@@ -137,7 +128,6 @@ final class UpdateController {
     /// One notification per version, and none for a version the user skipped.
     private func announce(_ release: AvailableRelease) {
         let skipped = UserDefaults.standard.string(forKey: Self.skippedKey)
-            ?? UserDefaults.standard.string(forKey: Self.legacySkippedKey)
         guard announcedVersion != release.version,
               skipped != release.version.description else { return }
         announcedVersion = release.version
@@ -186,7 +176,6 @@ final class UpdateController {
     func skip() {
         if case .available(let release) = state {
             UserDefaults.standard.set(release.version.description, forKey: Self.skippedKey)
-            UserDefaults.standard.set(release.version.description, forKey: Self.legacySkippedKey)
         }
         closeWindow()
     }

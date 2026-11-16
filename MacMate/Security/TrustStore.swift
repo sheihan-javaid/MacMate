@@ -11,11 +11,13 @@ public final class TrustStore: ObservableObject, @unchecked Sendable {
 
     @Published public private(set) var pairedDevices: [String: PairedDevice] = [:]
 
-    private let userDefaultsKey = "macmate_paired_devices"
-    private let legacyUserDefaultsKey = "tether_paired_devices"
+    static let userDefaultsKey = "macmate_paired_devices"
+    private let defaults: UserDefaults
     private let lock = NSLock()
 
-    private init() {
+    /// Tests pass their own `defaults` so they never touch the saved pairings.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         loadDevices()
     }
 
@@ -24,22 +26,19 @@ public final class TrustStore: ObservableObject, @unchecked Sendable {
     private static let removedPreloadedDeviceIds: Set<String> = ["5bbcb3e152d34b9597997d39ca4587ce"]
 
     private func loadDevices() {
-        let stored = Self.decode(key: userDefaultsKey)
-            ?? Self.decode(key: legacyUserDefaultsKey)
-            ?? Self.decode(key: "kdeconnect_paired_devices")
-            ?? []
+        let stored = decode(key: Self.userDefaultsKey) ?? []
         let kept = stored.filter { !Self.removedPreloadedDeviceIds.contains($0.deviceId) }
 
         self.pairedDevices = Dictionary(kept.map { ($0.deviceId, $0) }, uniquingKeysWith: { _, latest in latest })
 
-        // Persist when migrating from the legacy key or when a preloaded entry was dropped.
-        if kept.count != stored.count || UserDefaults.standard.data(forKey: userDefaultsKey) == nil {
+        // Persist when a preloaded entry was dropped, and on first launch so the key exists.
+        if kept.count != stored.count || defaults.data(forKey: Self.userDefaultsKey) == nil {
             saveDevices()
         }
     }
 
-    private static func decode(key: String) -> [PairedDevice]? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+    private func decode(key: String) -> [PairedDevice]? {
+        guard let data = defaults.data(forKey: key) else { return nil }
         do {
             let list = try JSONDecoder().decode([PairedDevice].self, from: data)
             return list.isEmpty ? nil : list
@@ -47,7 +46,7 @@ public final class TrustStore: ObservableObject, @unchecked Sendable {
             // Never silently treat unreadable pairings as "none": that would let
             // the next save overwrite them. Keep the raw bytes for recovery.
             MacMateLog("[TrustStore] Could not read \(key): \(error)")
-            UserDefaults.standard.set(data, forKey: "\(key)_unreadable_backup")
+            defaults.set(data, forKey: "\(key)_unreadable_backup")
             return nil
         }
     }
@@ -55,8 +54,7 @@ public final class TrustStore: ObservableObject, @unchecked Sendable {
     private func saveDevices() {
         let list = Array(pairedDevices.values)
         if let data = try? JSONEncoder().encode(list) {
-            UserDefaults.standard.set(data, forKey: userDefaultsKey)
-            UserDefaults.standard.set(data, forKey: legacyUserDefaultsKey)
+            defaults.set(data, forKey: Self.userDefaultsKey)
         }
     }
 

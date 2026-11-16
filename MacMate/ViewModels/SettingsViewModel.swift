@@ -18,6 +18,9 @@ import CoreLocation
 public final class SettingsViewModel {
     public static let shared = SettingsViewModel()
 
+    nonisolated static let shareWiFiSSIDKey = "macmate_share_wifi_ssid"
+    nonisolated static let shareWallpaperKey = "macmate_share_wallpaper"
+
     public var deviceName: String = DeviceIdentity.shared.deviceName
     public var deviceId: String = DeviceIdentity.shared.deviceId
     public var certificateFingerprint: String = DeviceIdentity.shared.certificateFingerprint
@@ -35,19 +38,19 @@ public final class SettingsViewModel {
     }
     /// Whether this Mac shares its Wi-Fi network name with paired devices.
     /// Stored, not computed from UserDefaults, so SwiftUI sees changes.
-    public var shareWiFiSSID: Bool = UserDefaults.standard.bool(forKey: "macmate_share_wifi_ssid") {
+    public var shareWiFiSSID: Bool = UserDefaults.standard.bool(forKey: SettingsViewModel.shareWiFiSSIDKey) {
         didSet {
             guard !isMockMode, oldValue != shareWiFiSSID else { return }
-            UserDefaults.standard.set(shareWiFiSSID, forKey: "macmate_share_wifi_ssid")
+            UserDefaults.standard.set(shareWiFiSSID, forKey: Self.shareWiFiSSIDKey)
             MacMateService.shared.updateSSIDSharing(enabled: shareWiFiSSID)
         }
     }
     /// Whether this Mac pushes its desktop wallpaper to paired PocketLink devices.
     /// Opt-in and off by default; nothing is sent unless this is on.
-    public var shareWallpaper: Bool = UserDefaults.standard.bool(forKey: "macmate_share_wallpaper") {
+    public var shareWallpaper: Bool = UserDefaults.standard.bool(forKey: SettingsViewModel.shareWallpaperKey) {
         didSet {
             guard !isMockMode, oldValue != shareWallpaper else { return }
-            UserDefaults.standard.set(shareWallpaper, forKey: "macmate_share_wallpaper")
+            UserDefaults.standard.set(shareWallpaper, forKey: Self.shareWallpaperKey)
             MacMateService.shared.wallpaperSync.enabledChanged()
         }
     }
@@ -100,7 +103,6 @@ public final class SettingsViewModel {
         self.deviceName = trimmed
         DeviceIdentity.shared.deviceName = trimmed
         UserDefaults.standard.set(trimmed, forKey: "macmate_device_name")
-        UserDefaults.standard.set(trimmed, forKey: "tether_device_name")
         MacMateService.shared.refreshAdvertisement()
     }
 

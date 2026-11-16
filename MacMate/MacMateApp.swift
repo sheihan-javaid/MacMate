@@ -10,31 +10,24 @@ struct MacMateApp: App {
     @State private var appModel: MacMateAppModel
 
     init() {
-        // Migrate legacy preferences from com.subhashh.Tether if present
-        if let legacyDefaults = UserDefaults(suiteName: "com.subhashh.Tether") {
-            let legacyDict = legacyDefaults.dictionaryRepresentation()
-            for (key, value) in legacyDict {
-                if UserDefaults.standard.object(forKey: key) == nil {
-                    UserDefaults.standard.set(value, forKey: key)
-                }
-            }
-        }
+        // Deterministic first-launch state: default settings and our own folders.
+        FreshInstall.prepare()
 
         #if DEBUG
-        // `-MacMateDemoData` or `-TetherDemoData` fills the UI with sample devices for screenshots and
+        // `-MacMateDemoData` fills the UI with sample devices for screenshots and
         // design work, without touching the network.
-        // `-MacMateDemoRinging` / `-TetherDemoRinging` also shows the Ring panel, without sound.
-        // `-MacMateDemoCall` / `-TetherDemoCall` also shows the incoming-call card.
+        // `-MacMateDemoRinging` also shows the Ring panel, without sound.
+        // `-MacMateDemoCall` also shows the incoming-call card.
         let args = ProcessInfo.processInfo.arguments
-        if args.contains("-MacMateDemoData") || args.contains("-TetherDemoData") {
+        if args.contains("-MacMateDemoData") {
             _appModel = State(initialValue: .mock())
             PhoneFilesController.shared.showDemoDrive(for: "mock_phone")
-            if args.contains("-MacMateDemoRinging") || args.contains("-TetherDemoRinging") {
+            if args.contains("-MacMateDemoRinging") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     MacRinger.shared.showDemoPanel(deviceName: "Pixel 9 Pro")
                 }
             }
-            if args.contains("-MacMateDemoCall") || args.contains("-TetherDemoCall") {
+            if args.contains("-MacMateDemoCall") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     CallCard.shared.showDemo()
                 }
@@ -62,14 +55,13 @@ struct MacMateApp: App {
         PhoneFilesController.shared.start()
     }
 
-    /// Demo data opens the main window at `-MacMateDemoSection <section>` or `-TetherDemoSection <section>`
+    /// Demo data opens the main window at `-MacMateDemoSection <section>`
     /// (overview when not given).
     private static var demoSection: DeviceSection? {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
-        guard args.contains("-MacMateDemoData") || args.contains("-TetherDemoData") else { return nil }
-        return (UserDefaults.standard.string(forKey: "MacMateDemoSection")
-            ?? UserDefaults.standard.string(forKey: "TetherDemoSection"))
+        guard args.contains("-MacMateDemoData") else { return nil }
+        return UserDefaults.standard.string(forKey: "MacMateDemoSection")
             .flatMap(DeviceSection.init) ?? .overview
         #else
         return nil

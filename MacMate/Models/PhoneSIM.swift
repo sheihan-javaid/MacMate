@@ -1,13 +1,13 @@
 //
 //  PhoneSIM.swift
-//  Tether
+//  MacMate
 //
 
 import Foundation
 
 /// A SIM in the phone, as its connectivity report lists them. The phone gives
 /// only Android's subscription id and the network type, not the carrier or
-/// the number, so SIMs are numbered in id order and can be named in Tether.
+/// the number, so SIMs are numbered in id order and can be named in MacMate.
 public struct PhoneSIM: Identifiable, Hashable, Sendable {
     /// Android's subscription id, which SMS packets call `subID`/`sub_id`.
     public let id: Int64
@@ -16,10 +16,10 @@ public struct PhoneSIM: Identifiable, Hashable, Sendable {
     public let networkType: String
 }
 
-/// Names given to SIMs in Tether, stored as JSON keyed "deviceId/subId" so
+/// Names given to SIMs in MacMate, stored as JSON keyed "deviceId/subId" so
 /// views can watch them with @AppStorage.
 enum SIMNames {
-    static let key = "tether_sim_names"
+    static let key = "macmate_sim_names"
 
     static func decode(_ json: String) -> [String: String] {
         (try? JSONDecoder().decode([String: String].self, from: Data(json.utf8))) ?? [:]
