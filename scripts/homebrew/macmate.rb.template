@@ -1,0 +1,41 @@
+cask "macmate" do
+  arch arm: "AppleSilicon", intel: "Intel"
+
+  version "@VERSION@"
+  sha256 arm:   "@SHA_ARM@",
+         intel: "@SHA_INTEL@"
+
+  url "https://github.com/sheihan-javaid/MacMate/releases/download/v#{version}/MacMate-#{version}-#{arch}.dmg"
+  name "MacMate"
+  desc "Phone notifications, texts, files and clipboard from Android via KDE Connect"
+  homepage "https://github.com/sheihan-javaid/MacMate"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  auto_updates true
+  depends_on macos: :sequoia
+
+  app "MacMate.app"
+
+  # MacMate isn't notarized; clearing the flag spares Homebrew users the Gatekeeper prompt.
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/MacMate.app"]
+  end
+
+  uninstall quit: "com.subhashh.MacMate"
+
+  # `brew uninstall --zap` removes these, including the device identity in
+  # Application Support/MacMate. Back it up first (docs/identity-backup.md).
+  zap trash: [
+    "~/Library/Application Support/MacMate",
+    "~/Library/Caches/com.subhashh.MacMate",
+    "~/Library/Caches/MacMateAttachments",
+    "~/Library/Caches/MacMateIncoming",
+    "~/Library/Caches/MacMateOutgoing",
+    "~/Library/Caches/MacMateUpdate",
+    "~/Library/Preferences/com.subhashh.MacMate.plist",
+  ]
+end

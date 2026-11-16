@@ -63,7 +63,7 @@ As of MacMate 2.0.
 - [x] Light and Dark mode, accent colour, and a Reduce Motion setting
 - [x] Lock the Mac when your phone leaves (optional)
 - [x] Updates itself, after checking each update's signature
-- [x] Homebrew install: `brew install --cask subhashhhhhh/macmate/macmate`
+- [x] Homebrew install: `brew install --cask sheihan-javaid/macmate/macmate`
 - [x] Apple Silicon and Intel, macOS 15 Sequoia or later
 
 ## Planned

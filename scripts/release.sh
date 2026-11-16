@@ -32,6 +32,13 @@ TAP_REPO="sheihan-javaid/homebrew-macmate"
 security find-identity -p codesigning | grep -q "\"$IDENTITY\"" \
   || { echo "The \"$IDENTITY\" signing identity isn't in the keychain (see docs/signing.md)" >&2; exit 1; }
 
+# Check the Homebrew tap before building anything: the cask is the last step of
+# a publish, and a missing tap would leave the release half done.
+if [[ "${1:-}" == "--publish" ]]; then
+  [[ "$(gh api "repos/$TAP_REPO" --jq .permissions.push 2>/dev/null)" == "true" ]] \
+    || { echo "You can't push to the Homebrew tap $TAP_REPO (missing, or no write access). See docs/homebrew.md. Nothing was built or published." >&2; exit 1; }
+fi
+
 mkdir -p "$DIST"
 echo "MacMate $VERSION (macOS $MIN_MACOS+)"
 
@@ -149,14 +156,8 @@ PY
   sha_intel=$(shasum -a 256 "$DIST/MacMate-$VERSION-Intel.dmg" | cut -d' ' -f1)
   tap="$BUILD/tap"
   gh repo clone "$TAP_REPO" "$tap" -- --quiet --depth 1
-  sed -E -i '' \
-    -e "s/^  version \".*\"/  version \"$VERSION\"/" \
-    -e "s/^  sha256 arm: +\"[0-9a-f]*\",/  sha256 arm:   \"$sha_arm\",/" \
-    -e "s/^         intel: \"[0-9a-f]*\"/         intel: \"$sha_intel\"/" \
-    "$tap/Casks/tether.rb"
-  grep -q "$sha_arm" "$tap/Casks/tether.rb" && grep -q "$sha_intel" "$tap/Casks/tether.rb" \
-    || { echo "Couldn't update $tap/Casks/tether.rb" >&2; exit 1; }
-  git -C "$tap" commit -qam "MacMate $VERSION"
+  "$ROOT/scripts/update-homebrew-cask.sh" "$tap" "$VERSION" "$sha_arm" "$sha_intel"
+  git -C "$tap" commit -qm "MacMate $VERSION"
   git -C "$tap" push -q
   echo "    $TAP_REPO → $VERSION"
 fi
