@@ -517,12 +517,12 @@ public final class PayloadUploader: @unchecked Sendable {
 public enum PayloadDownloader {
 
     /// Where in-flight downloads are written before a plugin claims them.
-    public static var incomingDirectory: URL {
+    public nonisolated static let incomingDirectory: URL = {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let legacyDir = caches.appendingPathComponent("TetherIncoming", isDirectory: true)
-        try? FileManager.default.removeItem(at: legacyDir)
+        // Evaluated once: clear the folder an older version used.
+        try? FileManager.default.removeItem(at: caches.appendingPathComponent("TetherIncoming", isDirectory: true))
         return caches.appendingPathComponent("MacMateIncoming", isDirectory: true)
-    }
+    }()
 
     /// Connects to the peer's payload server and streams `size` bytes to a
     /// temporary file, so memory stays flat no matter how large the file is.
