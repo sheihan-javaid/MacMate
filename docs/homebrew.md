@@ -13,17 +13,17 @@ in `scripts/homebrew/macmate.rb.template`.
 
 ## Before the first publish
 
-Two things must be true, or `release.sh --publish` stops before building
-anything (it checks the tap first so a release is never left half done):
+`release.sh --publish` stops before building anything unless it can push to the
+tap (it checks first, so a release is never left half done).
 
-1. **The tap repository exists and you can push to it.** At the time of writing
-   `sheihan-javaid/homebrew-macmate` does not exist. The old Tether cask lives in
-   `subhashhhhhh/homebrew-tether`, another account's repository; this project can
-   read it but cannot, and should not, change it.
-2. **`sheihan-javaid/MacMate` is public.** Homebrew downloads the DMG from the
-   release URL, and the in-app updater reads `updates/latest.json` through
-   `raw.githubusercontent.com`. Neither works for anonymous users while the
-   repository is private.
+- **The tap repository must exist.** At the time of writing
+  `sheihan-javaid/homebrew-macmate` does not. The old Tether cask lives in
+  `subhashhhhhh/homebrew-tether`, another account's repository; this project can
+  read it but cannot, and should not, change it. Create the tap below.
+- **`sheihan-javaid/MacMate` must be public.** Homebrew downloads the DMG from
+  the release URL, and the in-app updater reads `updates/latest.json` through
+  `raw.githubusercontent.com`. It is public now; an anonymous request returns
+  200 for the repository, the manifest and the v2.0 DMG.
 
 ## Create the tap
 
