@@ -245,54 +245,39 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
             self.activeProcesses[currentId] = process
         }
 
-        stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self, weak connection] handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            let lines = text.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        // Pipe reads arrive in arbitrary chunks, so a line (or a multi-byte
+        // character) can be split across two of them. Buffer until a newline.
+        let stdoutLines = LineBuffer()
+        let stderrLines = LineBuffer()
 
-            DispatchQueue.main.async {
+        func emit(_ lines: [String], isStderr: Bool, connection: DeviceConnection?) {
+            guard !lines.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
                 for line in lines {
-                    self?.appendLog(commandId: command.id, line: line)
+                    self?.appendLog(commandId: command.id, line: isStderr ? "stderr: \(line)" : line)
                 }
             }
-
-            if let conn = connection, !lines.isEmpty {
-                let outPacket = NetworkPacket(
-                    type: Self.outputType,
-                    body: [
-                        "commandOutput": AnyCodable(true),
-                        "stdout": AnyCodable(lines),
-                        "stderr": AnyCodable([] as [String]),
-                        "id": AnyCodable(Int(currentId))
-                    ]
-                )
-                conn.send(packet: outPacket)
-            }
+            connection?.send(packet: NetworkPacket(
+                type: Self.outputType,
+                body: [
+                    "commandOutput": AnyCodable(true),
+                    "stdout": AnyCodable(isStderr ? [] as [String] : lines),
+                    "stderr": AnyCodable(isStderr ? lines : [] as [String]),
+                    "id": AnyCodable(Int(currentId))
+                ]
+            ))
         }
 
-        stderrPipe.fileHandleForReading.readabilityHandler = { [weak self, weak connection] handle in
+        stdoutPipe.fileHandleForReading.readabilityHandler = { [weak connection] handle in
             let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            let lines = text.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            guard !data.isEmpty else { return }
+            emit(stdoutLines.append(data), isStderr: false, connection: connection)
+        }
 
-            DispatchQueue.main.async {
-                for line in lines {
-                    self?.appendLog(commandId: command.id, line: "stderr: \(line)")
-                }
-            }
-
-            if let conn = connection, !lines.isEmpty {
-                let outPacket = NetworkPacket(
-                    type: Self.outputType,
-                    body: [
-                        "commandOutput": AnyCodable(true),
-                        "stdout": AnyCodable([] as [String]),
-                        "stderr": AnyCodable(lines),
-                        "id": AnyCodable(Int(currentId))
-                    ]
-                )
-                conn.send(packet: outPacket)
-            }
+        stderrPipe.fileHandleForReading.readabilityHandler = { [weak connection] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            emit(stderrLines.append(data), isStderr: true, connection: connection)
         }
 
         process.terminationHandler = { [weak self, weak connection] proc in
@@ -301,6 +286,10 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
 
             stdoutPipe.fileHandleForReading.readabilityHandler = nil
             stderrPipe.fileHandleForReading.readabilityHandler = nil
+            // A last line with no trailing newline. The pipes are not drained:
+            // a background child can hold them open and block this forever.
+            emit(stdoutLines.flush(), isStderr: false, connection: connection)
+            emit(stderrLines.flush(), isStderr: true, connection: connection)
 
             self?.lock.withLock {
                 _ = self?.activeProcesses.removeValue(forKey: currentId)
@@ -363,5 +352,36 @@ public final class RunCommandPlugin: ObservableObject, MacMatePlugin, @unchecked
             existing.removeFirst(existing.count - 100)
         }
         commandLogs[commandId] = existing
+    }
+}
+
+/// Turns arbitrary chunks of process output into complete lines.
+/// Used from one pipe's readability handler at a time.
+final class LineBuffer: @unchecked Sendable {
+    private var pending = Data()
+    private let lock = NSLock()
+
+    /// Adds `data` and returns every line it completed.
+    func append(_ data: Data) -> [String] {
+        lock.withLock {
+            pending.append(data)
+            var lines: [String] = []
+            while let newline = pending.firstIndex(of: UInt8(ascii: "\n")) {
+                let line = pending[pending.startIndex..<newline]
+                pending.removeSubrange(pending.startIndex...newline)
+                let text = String(decoding: line, as: UTF8.self)
+                if !text.isEmpty { lines.append(text) }
+            }
+            return lines
+        }
+    }
+
+    /// The last line, if the output didn't end with a newline.
+    func flush() -> [String] {
+        lock.withLock {
+            defer { pending.removeAll() }
+            let text = String(decoding: pending, as: UTF8.self)
+            return text.isEmpty ? [] : [text]
+        }
     }
 }
