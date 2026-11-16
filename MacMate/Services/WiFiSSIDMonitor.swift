@@ -25,7 +25,11 @@ public final class WiFiSSIDMonitor: NSObject, CWEventDelegate {
         try? wifiClient.startMonitoringEvent(with: .ssidDidChange)
     }
 
-    public func ssidDidChangeForWiFiInterfaceWithName(interfaceName: String!) {
-        delegate?.ssidDidChange()
+    /// CWEventDelegate requirement; any other spelling compiles but is never
+    /// called. CoreWLAN calls it on a background queue.
+    public nonisolated func ssidDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor in
+            self.delegate?.ssidDidChange()
+        }
     }
 }
