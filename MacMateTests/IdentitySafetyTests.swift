@@ -15,7 +15,7 @@ import Foundation
 private struct IdentitySandbox {
     let root: URL
     let support: URL
-    let suiteName = "com.example.macmate-identity-\(UUID().uuidString)"
+    let suiteName: String
     let defaults: UserDefaults
 
     init() {
@@ -23,15 +23,14 @@ private struct IdentitySandbox {
             .appendingPathComponent("macmate-identity-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         support = AppIdentity.applicationSupportDirectory(root: root)
+        // Absolute-path suite: its plist stays in the temporary folder.
+        suiteName = root.appendingPathComponent("test-defaults").path
         defaults = UserDefaults(suiteName: suiteName)!
     }
 
     func cleanUp() {
         defaults.removePersistentDomain(forName: suiteName)
         try? FileManager.default.removeItem(at: root)
-        let plist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Preferences/\(suiteName).plist")
-        try? FileManager.default.removeItem(at: plist)
     }
 
     func start() -> DeviceIdentity {

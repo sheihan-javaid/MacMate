@@ -29,17 +29,16 @@ private struct Sandbox {
         caches = root.appendingPathComponent("Caches", isDirectory: true)
         try? FileManager.default.createDirectory(at: applicationSupport, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: caches, withIntermediateDirectories: true)
-        suiteName = "com.example.macmate-test-\(UUID().uuidString)"
+        // An absolute path as the suite name keeps this suite's plist inside the
+        // temporary folder, instead of ~/Library/Preferences where the system
+        // writes the file back after it has been removed.
+        suiteName = root.appendingPathComponent("test-defaults").path
         defaults = UserDefaults(suiteName: suiteName)!
     }
 
     func cleanUp() {
         defaults.removePersistentDomain(forName: suiteName)
         try? FileManager.default.removeItem(at: root)
-        // The suite leaves an empty plist behind; remove this suite's own file only.
-        let plist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Preferences/\(suiteName).plist")
-        try? FileManager.default.removeItem(at: plist)
     }
 
     /// Stands in for what another application might have left on disk: an
